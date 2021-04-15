@@ -1,10 +1,11 @@
 mod primes;
 
 use cirru_parser::{parse, write_cirru, CirruNode, CirruWriterOptions};
-use primes::CirruEdn;
+pub use primes::CirruEdn;
 use primes::CirruEdn::*;
 use regex::Regex;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use cirru_parser::CirruNode::*;
 
@@ -44,7 +45,7 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
             let f: f32 = s1.parse().unwrap();
             Ok(CirruEdnNumber(f))
           } else {
-            Err(String::from("Unknown token"))
+            Err(format!("Unknown token: {:?}", s1))
           }
         }
       },
@@ -80,6 +81,20 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
                 }
               }
               Ok(CirruEdnList(ys))
+            }
+            "#{}" => {
+              let mut ys: HashSet<CirruEdn> = HashSet::new();
+              for (idx, x) in xs.iter().enumerate() {
+                if idx > 0 {
+                  match extract_cirru_edn(x) {
+                    Ok(v) => {
+                      ys.insert(v);
+                    }
+                    Err(v) => return Err(v),
+                  }
+                }
+              }
+              Ok(CirruEdnSet(ys))
             }
             "{}" => {
               let mut zs: HashMap<CirruEdn, CirruEdn> = HashMap::new();
@@ -145,7 +160,7 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
 }
 
 fn matches_float(x: &str) -> bool {
-  let re = Regex::new("^-?[\\d]+(\\.[\\d+]?)$").unwrap();
+  let re = Regex::new("^-?[\\d]+(\\.[\\d]+)?$").unwrap(); // TODO special cases not handled
   re.is_match(x)
 }
 

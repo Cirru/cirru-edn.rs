@@ -3,6 +3,12 @@ name = "cirru_edn"
 version = "0.0.1"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "Parser/Writer for Cirru EDN"
+homepage = "http://cirru.org"
+documentation = "https://docs.rs/crate/cirru_edn/"
+repository = "https://github.com/Cirru/cirru_edn.rs"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

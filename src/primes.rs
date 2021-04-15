@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-#[derive(fmt::Debug)]
+#[derive(fmt::Debug, Clone)]
 pub enum CirruEdn {
   CirruEdnNil,
   CirruEdnBool(bool),
