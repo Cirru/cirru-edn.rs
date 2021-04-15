@@ -1,4 +1,4 @@
 #[test]
-fn it_works() {
+fn parse_edn() {
   assert_eq!(2 + 2, 4);
 }

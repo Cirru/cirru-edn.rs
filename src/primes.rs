@@ -179,12 +179,12 @@ impl Ord for CirruEdn {
       (_, CirruEdnSet(_)) => Greater,
 
       (CirruEdnMap(a), CirruEdnMap(b)) => {
-        unreachable!("TODO maps are not cmp ed") // TODO
+        unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)) // TODO
       }
       (CirruEdnMap(_), _) => Less,
       (_, CirruEdnMap(_)) => Greater,
 
-      (CirruEdnRecord(name1, fields1, values1), CirruEdnRecord(name2, fields2, values2)) => {
+      (CirruEdnRecord(_name1, _fields1, _values1), CirruEdnRecord(_name2, _fields2, _values2)) => {
         unreachable!("TODO records are not cmp ed") // TODO
       }
     }
