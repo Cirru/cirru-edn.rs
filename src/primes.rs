@@ -1,5 +1,6 @@
 use cirru_parser::CirruNode;
 use core::cmp::Ord;
+use regex::Regex;
 use std::cmp::Eq;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
@@ -7,7 +8,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-#[derive(fmt::Debug)]
+/// Data format based on subset of EDN, but in Cirru syntax.
+/// different parts are quote and Record.
+#[derive(fmt::Debug, Clone)]
 pub enum CirruEdn {
   CirruEdnNil,
   CirruEdnBool(bool),
@@ -30,10 +33,17 @@ impl fmt::Display for CirruEdn {
       CirruEdnNil => f.write_str("nil"),
       CirruEdnBool(v) => f.write_str(&format!("{}", v)),
       CirruEdnNumber(n) => f.write_str(&format!("{}", n)),
-      CirruEdnSymbol(s) => f.write_str(&format!("\"|{}\"", s)), // TODO
+      CirruEdnSymbol(s) => f.write_str(&format!("'{}", s)),
       CirruEdnKeyword(s) => f.write_str(&format!(":{}", s)),
-      CirruEdnString(s) => f.write_str(&format!("'{}", s)),
-      CirruEdnQuote(v) => f.write_str(&format!("{}", v)),
+      CirruEdnString(s) => {
+        let re = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
+        if re.is_match(s) {
+          f.write_str(&format!("|{}", s))
+        } else {
+          f.write_str(&format!("\"|{}\"", s))
+        }
+      }
+      CirruEdnQuote(v) => f.write_str(&format!("(quote {})", v)),
       CirruEdnList(xs) => {
         f.write_str("([]")?;
         for x in xs {
@@ -49,10 +59,11 @@ impl fmt::Display for CirruEdn {
         f.write_str(")")
       }
       CirruEdnMap(xs) => {
+        f.write_str("({}")?;
         for (k, v) in xs {
-          f.write_str(&format!("{} {}", k, v))?;
+          f.write_str(&format!(" ({} {})", k, v))?;
         }
-        Ok(())
+        f.write_str(")")
       }
       CirruEdnRecord(name, fields, values) => {
         f.write_str(&format!("(%{{}} {}", name))?;
@@ -179,12 +190,12 @@ impl Ord for CirruEdn {
       (_, CirruEdnSet(_)) => Greater,
 
       (CirruEdnMap(a), CirruEdnMap(b)) => {
-        unreachable!("TODO maps are not cmp ed") // TODO
+        unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)) // TODO
       }
       (CirruEdnMap(_), _) => Less,
       (_, CirruEdnMap(_)) => Greater,
 
-      (CirruEdnRecord(name1, fields1, values1), CirruEdnRecord(name2, fields2, values2)) => {
+      (CirruEdnRecord(_name1, _fields1, _values1), CirruEdnRecord(_name2, _fields2, _values2)) => {
         unreachable!("TODO records are not cmp ed") // TODO
       }
     }
