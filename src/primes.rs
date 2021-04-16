@@ -8,6 +8,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+/// Data format based on subset of EDN, but in Cirru syntax.
+/// different parts are quote and Record.
 #[derive(fmt::Debug, Clone)]
 pub enum CirruEdn {
   CirruEdnNil,
@@ -41,7 +43,7 @@ impl fmt::Display for CirruEdn {
           f.write_str(&format!("\"|{}\"", s))
         }
       }
-      CirruEdnQuote(v) => f.write_str(&format!("{}", v)),
+      CirruEdnQuote(v) => f.write_str(&format!("(quote {})", v)),
       CirruEdnList(xs) => {
         f.write_str("([]")?;
         for x in xs {

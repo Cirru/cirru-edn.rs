@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use cirru_parser::CirruNode::*;
 
-/// TODO
+/// parse Cirru code into data
 pub fn parse_cirru_edn(s: String) -> Result<CirruEdn, String> {
   match parse(s) {
     Ok(nodes) => match nodes {

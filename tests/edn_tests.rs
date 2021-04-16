@@ -1,6 +1,7 @@
 use cirru_edn::CirruEdn;
 use cirru_edn::CirruEdn::*;
 use cirru_edn::{parse_cirru_edn, write_cirru_edn};
+use cirru_parser::CirruNode::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -209,6 +210,13 @@ fn debug_format() -> Result<(), String> {
 
   let singleton_vec = vec![CirruEdnBool(false)];
   assert_eq!(format!("{}", CirruEdnList(singleton_vec)), "([] false)");
+
+  let code = CirruEdnList(vec![CirruEdnQuote(CirruList(vec![
+    CirruLeaf(String::from("a")),
+    CirruLeaf(String::from("b")),
+  ]))]);
+
+  assert_eq!(format!("{}", code), "([] (quote (a b)))");
 
   Ok(())
 }
