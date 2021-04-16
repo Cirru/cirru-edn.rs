@@ -1,5 +1,6 @@
 use cirru_parser::CirruNode;
 use core::cmp::Ord;
+use regex::Regex;
 use std::cmp::Eq;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
@@ -30,9 +31,16 @@ impl fmt::Display for CirruEdn {
       CirruEdnNil => f.write_str("nil"),
       CirruEdnBool(v) => f.write_str(&format!("{}", v)),
       CirruEdnNumber(n) => f.write_str(&format!("{}", n)),
-      CirruEdnSymbol(s) => f.write_str(&format!("\"|{}\"", s)), // TODO
+      CirruEdnSymbol(s) => f.write_str(&format!("'{}", s)),
       CirruEdnKeyword(s) => f.write_str(&format!(":{}", s)),
-      CirruEdnString(s) => f.write_str(&format!("'{}", s)),
+      CirruEdnString(s) => {
+        let re = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
+        if re.is_match(s) {
+          f.write_str(&format!("|{}", s))
+        } else {
+          f.write_str(&format!("\"|{}\"", s))
+        }
+      }
       CirruEdnQuote(v) => f.write_str(&format!("{}", v)),
       CirruEdnList(xs) => {
         f.write_str("([]")?;
@@ -49,10 +57,11 @@ impl fmt::Display for CirruEdn {
         f.write_str(")")
       }
       CirruEdnMap(xs) => {
+        f.write_str("({}")?;
         for (k, v) in xs {
-          f.write_str(&format!("{} {}", k, v))?;
+          f.write_str(&format!(" ({} {})", k, v))?;
         }
-        Ok(())
+        f.write_str(")")
       }
       CirruEdnRecord(name, fields, values) => {
         f.write_str(&format!("(%{{}} {}", name))?;

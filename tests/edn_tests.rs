@@ -1,6 +1,7 @@
 use cirru_edn::CirruEdn;
 use cirru_edn::CirruEdn::*;
 use cirru_edn::{parse_cirru_edn, write_cirru_edn};
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 #[test]
@@ -180,4 +181,34 @@ fn demo_parsing() {
   let v2 = parse_cirru_edn(String::from(DICT_DEMO2)).unwrap();
   assert_eq!(parse_cirru_edn(write_cirru_edn(v1.clone())), Ok(v1.clone()));
   assert_eq!(v1, v2);
+}
+
+#[test]
+fn debug_format() -> Result<(), String> {
+  // TODO order for hashmap is unstable
+
+  // let DICT_INLINE2: &str =
+  //   r#"({} (:a 1) (:b ([] 2 3 4)) (:c ({} (:h ({} (|b true) (|a 1)) (:e true) (:d 4) (:f :g))"#;
+
+  // let data = parse_cirru_edn(String::from(DICT_DEMO2))?;
+  // assert_eq!(format!("{}", data), DICT_INLINE2);
+
+  let empty = HashMap::new();
+  assert_eq!(format!("{}", CirruEdnMap(empty)), "({})");
+
+  let mut singleton: HashMap<CirruEdn, CirruEdn> = HashMap::new();
+  singleton.insert(
+    CirruEdnKeyword(String::from("a")),
+    CirruEdnString(String::from("b")),
+  );
+  assert_eq!(format!("{}", CirruEdnMap(singleton)), "({} (:a |b))");
+
+  let mut singleton_set: HashSet<CirruEdn> = HashSet::new();
+  singleton_set.insert(CirruEdnSymbol(String::from("a")));
+  assert_eq!(format!("{}", CirruEdnSet(singleton_set)), "(#{} 'a)");
+
+  let singleton_vec = vec![CirruEdnBool(false)];
+  assert_eq!(format!("{}", CirruEdnList(singleton_vec)), "([] false)");
+
+  Ok(())
 }
