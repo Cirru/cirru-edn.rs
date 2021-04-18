@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 mod primes;
 
 use cirru_parser::{parse_cirru, write_cirru, CirruNode, CirruWriterOptions};
@@ -159,19 +162,42 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
   }
 }
 
+lazy_static! {
+    static ref RE_FLOAT: Regex = Regex::new("^-?[\\d]+(\\.[\\d]+)?$").unwrap(); // TODO special cases not handled
+}
+
 fn matches_float(x: &str) -> bool {
-  let re = Regex::new("^-?[\\d]+(\\.[\\d]+)?$").unwrap(); // TODO special cases not handled
-  re.is_match(x)
+  RE_FLOAT.is_match(x)
 }
 
 fn assemble_cirru_node(data: &CirruEdn) -> CirruNode {
   match data {
     CirruEdnNil => CirruLeaf(String::from("nil")),
-    CirruEdnBool(v) => CirruLeaf(format!("{}", v)),
-    CirruEdnNumber(n) => CirruLeaf(format!("{}", n)),
-    CirruEdnSymbol(s) => CirruLeaf(format!("'{}", s)),
-    CirruEdnKeyword(s) => CirruLeaf(format!(":{}", s)),
-    CirruEdnString(s) => CirruLeaf(format!("|{}", s)),
+    CirruEdnBool(v) => {
+      let mut leaf = String::from("");
+      leaf.push_str(&v.to_string());
+      CirruLeaf(leaf)
+    }
+    CirruEdnNumber(n) => {
+      let mut leaf = String::from("");
+      leaf.push_str(&n.to_string());
+      CirruLeaf(leaf)
+    }
+    CirruEdnSymbol(s) => {
+      let mut leaf = String::from("'");
+      leaf.push_str(&s);
+      CirruLeaf(leaf)
+    }
+    CirruEdnKeyword(s) => {
+      let mut leaf = String::from(":");
+      leaf.push_str(&s);
+      CirruLeaf(leaf)
+    }
+    CirruEdnString(s) => {
+      let mut leaf = String::from("|");
+      leaf.push_str(&s);
+      CirruLeaf(leaf)
+    }
     CirruEdnQuote(v) => CirruList(vec![CirruLeaf(String::from("quote")), (*v).clone()]),
     CirruEdnList(xs) => {
       let mut ys: Vec<CirruNode> = vec![CirruLeaf(String::from("[]"))];
@@ -220,11 +246,11 @@ pub fn write_cirru_edn(data: CirruEdn) -> String {
   let options = CirruWriterOptions { use_inline: true };
   match assemble_cirru_node(&data) {
     CirruLeaf(s) => write_cirru(
-      CirruList(vec![
+      &CirruList(vec![
         (CirruList(vec![CirruLeaf(String::from("do")), CirruLeaf(s)])),
       ]),
       options,
     ),
-    CirruList(xs) => write_cirru(CirruList(vec![(CirruList(xs))]), options),
+    CirruList(xs) => write_cirru(&CirruList(vec![(CirruList(xs))]), options),
   }
 }
