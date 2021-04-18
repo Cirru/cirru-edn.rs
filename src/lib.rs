@@ -1,6 +1,6 @@
 mod primes;
 
-use cirru_parser::{parse, write_cirru, CirruNode, CirruWriterOptions};
+use cirru_parser::{parse_cirru, write_cirru, CirruNode, CirruWriterOptions};
 pub use primes::CirruEdn;
 use primes::CirruEdn::*;
 use regex::Regex;
@@ -11,7 +11,7 @@ use cirru_parser::CirruNode::*;
 
 /// parse Cirru code into data
 pub fn parse_cirru_edn(s: String) -> Result<CirruEdn, String> {
-  match parse(s) {
+  match parse_cirru(s) {
     Ok(nodes) => match nodes {
       CirruLeaf(_) => Err(String::from("Expected exprs")),
       CirruList(xs) => {
@@ -36,7 +36,7 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
       "true" => Ok(CirruEdnBool(true)),
       "false" => Ok(CirruEdnBool(false)),
       "" => Err(String::from("Empty string is invalid")),
-      s1 => match s1.chars().nth(0).unwrap() {
+      s1 => match s1.chars().next().unwrap() {
         '\'' => Ok(CirruEdnSymbol(String::from(&s1[1..]))),
         ':' => Ok(CirruEdnKeyword(String::from(&s1[1..]))),
         '"' | '|' => Ok(CirruEdnString(String::from(&s1[1..]))),
@@ -51,7 +51,7 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
       },
     },
     CirruList(xs) => {
-      if xs.len() == 0 {
+      if xs.is_empty() {
         Err(String::from("empty expr is invalid"))
       } else {
         match &xs[0] {
@@ -147,7 +147,7 @@ fn extract_cirru_edn(node: &CirruNode) -> Result<CirruEdn, String> {
                 }
                 Ok(CirruEdnRecord(name, fields, values))
               } else {
-                Err(format!("Not enough items for record"))
+                Err(String::from("Not enough items for record"))
               }
             }
             a => Err(format!("Invalid operator: {}", a)),
@@ -178,14 +178,14 @@ fn assemble_cirru_node(data: &CirruEdn) -> CirruNode {
       for x in xs {
         ys.push(assemble_cirru_node(x));
       }
-      return CirruList(ys);
+      CirruList(ys)
     }
     CirruEdnSet(xs) => {
       let mut ys: Vec<CirruNode> = vec![CirruLeaf(String::from("#{}"))];
       for x in xs {
         ys.push(assemble_cirru_node(x));
       }
-      return CirruList(ys);
+      CirruList(ys)
     }
     CirruEdnMap(xs) => {
       let mut ys: Vec<CirruNode> = vec![CirruLeaf(String::from("{}"))];

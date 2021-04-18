@@ -185,7 +185,7 @@ fn demo_parsing() {
 }
 
 #[test]
-fn debug_format() -> Result<(), String> {
+fn debug_format() {
   // TODO order for hashmap is unstable
 
   // let DICT_INLINE2: &str =
@@ -217,6 +217,4 @@ fn debug_format() -> Result<(), String> {
   ]))]);
 
   assert_eq!(format!("{}", code), "([] (quote (a b)))");
-
-  Ok(())
 }
