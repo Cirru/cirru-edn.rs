@@ -27,6 +27,10 @@ pub enum CirruEdn {
 
 use CirruEdn::*;
 
+lazy_static! {
+  static ref RE_SIMPLE_TOKEN: Regex = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
+}
+
 impl fmt::Display for CirruEdn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
@@ -36,8 +40,7 @@ impl fmt::Display for CirruEdn {
       CirruEdnSymbol(s) => f.write_str(&format!("'{}", s)),
       CirruEdnKeyword(s) => f.write_str(&format!(":{}", s)),
       CirruEdnString(s) => {
-        let re = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
-        if re.is_match(s) {
+        if RE_SIMPLE_TOKEN.is_match(s) {
           f.write_str(&format!("|{}", s))
         } else {
           f.write_str(&format!("\"|{}\"", s))
