@@ -1,4 +1,4 @@
-use cirru_parser::CirruNode;
+use cirru_parser::Cirru;
 use core::cmp::Ord;
 use regex::Regex;
 use std::cmp::Eq;
@@ -11,64 +11,62 @@ use std::hash::{Hash, Hasher};
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
 #[derive(fmt::Debug, Clone)]
-pub enum CirruEdn {
-  CirruEdnNil,
-  CirruEdnBool(bool),
-  CirruEdnNumber(f32),
-  CirruEdnSymbol(String),
-  CirruEdnKeyword(String),
-  CirruEdnString(String),
-  CirruEdnQuote(CirruNode),
-  CirruEdnList(Vec<CirruEdn>),
-  CirruEdnSet(HashSet<CirruEdn>),
-  CirruEdnMap(HashMap<CirruEdn, CirruEdn>),
-  CirruEdnRecord(String, Vec<String>, Vec<CirruEdn>),
+pub enum Edn {
+  Nil,
+  Bool(bool),
+  Number(f32),
+  Symbol(String),
+  Keyword(String),
+  Str(String), // name collision
+  Quote(Cirru),
+  List(Vec<Edn>),
+  Set(HashSet<Edn>),
+  Map(HashMap<Edn, Edn>),
+  Record(String, Vec<String>, Vec<Edn>),
 }
-
-use CirruEdn::*;
 
 lazy_static! {
   static ref RE_SIMPLE_TOKEN: Regex = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
 }
 
-impl fmt::Display for CirruEdn {
+impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      CirruEdnNil => f.write_str("nil"),
-      CirruEdnBool(v) => f.write_str(&format!("{}", v)),
-      CirruEdnNumber(n) => f.write_str(&format!("{}", n)),
-      CirruEdnSymbol(s) => f.write_str(&format!("'{}", s)),
-      CirruEdnKeyword(s) => f.write_str(&format!(":{}", s)),
-      CirruEdnString(s) => {
+      Self::Nil => f.write_str("nil"),
+      Self::Bool(v) => f.write_str(&format!("{}", v)),
+      Self::Number(n) => f.write_str(&format!("{}", n)),
+      Self::Symbol(s) => f.write_str(&format!("'{}", s)),
+      Self::Keyword(s) => f.write_str(&format!(":{}", s)),
+      Self::Str(s) => {
         if RE_SIMPLE_TOKEN.is_match(s) {
           f.write_str(&format!("|{}", s))
         } else {
           f.write_str(&format!("\"|{}\"", s))
         }
       }
-      CirruEdnQuote(v) => f.write_str(&format!("(quote {})", v)),
-      CirruEdnList(xs) => {
+      Self::Quote(v) => f.write_str(&format!("(quote {})", v)),
+      Self::List(xs) => {
         f.write_str("([]")?;
         for x in xs {
           f.write_str(&format!(" {}", x))?;
         }
         f.write_str(")")
       }
-      CirruEdnSet(xs) => {
+      Self::Set(xs) => {
         f.write_str("(#{}")?;
         for x in xs {
           f.write_str(&format!(" {}", x))?;
         }
         f.write_str(")")
       }
-      CirruEdnMap(xs) => {
+      Self::Map(xs) => {
         f.write_str("({}")?;
         for (k, v) in xs {
           f.write_str(&format!(" ({} {})", k, v))?;
         }
         f.write_str(")")
       }
-      CirruEdnRecord(name, fields, values) => {
+      Self::Record(name, fields, values) => {
         f.write_str(&format!("(%{{}} {}", name))?;
 
         for idx in 0..fields.len() {
@@ -81,56 +79,56 @@ impl fmt::Display for CirruEdn {
   }
 }
 
-impl Hash for CirruEdn {
+impl Hash for Edn {
   fn hash<H>(&self, _state: &mut H)
   where
     H: Hasher,
   {
     match self {
-      CirruEdnNil => "nil:".hash(_state),
-      CirruEdnBool(v) => {
+      Self::Nil => "nil:".hash(_state),
+      Self::Bool(v) => {
         "bool:".hash(_state);
         v.hash(_state);
       }
-      CirruEdnNumber(n) => {
+      Self::Number(n) => {
         "number:".hash(_state);
         (*n as usize).hash(_state) // TODO inaccurate solution
       }
-      CirruEdnSymbol(s) => {
+      Self::Symbol(s) => {
         "symbol:".hash(_state);
         s.hash(_state);
       }
-      CirruEdnKeyword(s) => {
+      Self::Keyword(s) => {
         "keyword:".hash(_state);
         s.hash(_state);
       }
-      CirruEdnString(s) => {
+      Self::Str(s) => {
         "string:".hash(_state);
         s.hash(_state);
       }
-      CirruEdnQuote(v) => {
+      Self::Quote(v) => {
         "quote:".hash(_state);
         v.hash(_state);
       }
-      CirruEdnList(v) => {
+      Self::List(v) => {
         "list:".hash(_state);
         v.hash(_state);
       }
-      CirruEdnSet(v) => {
+      Self::Set(v) => {
         "set:".hash(_state);
         // TODO order for set is stable
         for x in v {
           x.hash(_state)
         }
       }
-      CirruEdnMap(v) => {
+      Self::Map(v) => {
         "map:".hash(_state);
         // TODO order for map is not stable
         for x in v {
           x.hash(_state)
         }
       }
-      CirruEdnRecord(name, fields, values) => {
+      Self::Record(name, fields, values) => {
         "record:".hash(_state);
         name.hash(_state);
         fields.hash(_state);
@@ -140,18 +138,18 @@ impl Hash for CirruEdn {
   }
 }
 
-impl Ord for CirruEdn {
+impl Ord for Edn {
   fn cmp(&self, other: &Self) -> Ordering {
     match (self, other) {
-      (CirruEdnNil, CirruEdnNil) => Equal,
-      (CirruEdnNil, _) => Less,
-      (_, CirruEdnNil) => Greater,
+      (Self::Nil, Self::Nil) => Equal,
+      (Self::Nil, _) => Less,
+      (_, Self::Nil) => Greater,
 
-      (CirruEdnBool(a), CirruEdnBool(b)) => a.cmp(b),
-      (CirruEdnBool(_), _) => Less,
-      (_, CirruEdnBool(_)) => Greater,
+      (Self::Bool(a), Self::Bool(b)) => a.cmp(b),
+      (Self::Bool(_), _) => Less,
+      (_, Self::Bool(_)) => Greater,
 
-      (CirruEdnNumber(a), CirruEdnNumber(b)) => {
+      (Self::Number(a), Self::Number(b)) => {
         if a < b {
           Less
         } else if a > b {
@@ -160,73 +158,73 @@ impl Ord for CirruEdn {
           Equal
         }
       }
-      (CirruEdnNumber(_), _) => Less,
-      (_, CirruEdnNumber(_)) => Greater,
+      (Self::Number(_), _) => Less,
+      (_, Self::Number(_)) => Greater,
 
-      (CirruEdnSymbol(a), CirruEdnSymbol(b)) => a.cmp(b),
-      (CirruEdnSymbol(_), _) => Less,
-      (_, CirruEdnSymbol(_)) => Greater,
+      (Self::Symbol(a), Self::Symbol(b)) => a.cmp(b),
+      (Self::Symbol(_), _) => Less,
+      (_, Self::Symbol(_)) => Greater,
 
-      (CirruEdnKeyword(a), CirruEdnKeyword(b)) => a.cmp(b),
-      (CirruEdnKeyword(_), _) => Less,
-      (_, CirruEdnKeyword(_)) => Greater,
+      (Self::Keyword(a), Self::Keyword(b)) => a.cmp(b),
+      (Self::Keyword(_), _) => Less,
+      (_, Self::Keyword(_)) => Greater,
 
-      (CirruEdnString(a), CirruEdnString(b)) => a.cmp(b),
-      (CirruEdnString(_), _) => Less,
-      (_, CirruEdnString(_)) => Greater,
+      (Self::Str(a), Self::Str(b)) => a.cmp(b),
+      (Self::Str(_), _) => Less,
+      (_, Self::Str(_)) => Greater,
 
-      (CirruEdnQuote(a), CirruEdnQuote(b)) => a.cmp(b),
-      (CirruEdnQuote(_), _) => Less,
-      (_, CirruEdnQuote(_)) => Greater,
+      (Self::Quote(a), Self::Quote(b)) => a.cmp(b),
+      (Self::Quote(_), _) => Less,
+      (_, Self::Quote(_)) => Greater,
 
-      (CirruEdnList(a), CirruEdnList(b)) => a.cmp(b),
-      (CirruEdnList(_), _) => Less,
-      (_, CirruEdnList(_)) => Greater,
+      (Self::List(a), Self::List(b)) => a.cmp(b),
+      (Self::List(_), _) => Less,
+      (_, Self::List(_)) => Greater,
 
-      (CirruEdnSet(a), CirruEdnSet(b)) => match a.len().cmp(&b.len()) {
+      (Self::Set(a), Self::Set(b)) => match a.len().cmp(&b.len()) {
         Equal => {
           unreachable!("TODO sets are not cmp ed") // TODO
         }
         a => a,
       },
-      (CirruEdnSet(_), _) => Less,
-      (_, CirruEdnSet(_)) => Greater,
+      (Self::Set(_), _) => Less,
+      (_, Self::Set(_)) => Greater,
 
-      (CirruEdnMap(a), CirruEdnMap(b)) => {
+      (Self::Map(a), Self::Map(b)) => {
         unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)) // TODO
       }
-      (CirruEdnMap(_), _) => Less,
-      (_, CirruEdnMap(_)) => Greater,
+      (Self::Map(_), _) => Less,
+      (_, Self::Map(_)) => Greater,
 
-      (CirruEdnRecord(_name1, _fields1, _values1), CirruEdnRecord(_name2, _fields2, _values2)) => {
+      (Self::Record(_name1, _fields1, _values1), Self::Record(_name2, _fields2, _values2)) => {
         unreachable!("TODO records are not cmp ed") // TODO
       }
     }
   }
 }
 
-impl PartialOrd for CirruEdn {
+impl PartialOrd for Edn {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(other))
   }
 }
 
-impl Eq for CirruEdn {}
+impl Eq for Edn {}
 
-impl PartialEq for CirruEdn {
+impl PartialEq for Edn {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
-      (CirruEdnNil, CirruEdnNil) => true,
-      (CirruEdnBool(a), CirruEdnBool(b)) => a == b,
-      (CirruEdnNumber(a), CirruEdnNumber(b)) => a == b,
-      (CirruEdnSymbol(a), CirruEdnSymbol(b)) => a == b,
-      (CirruEdnKeyword(a), CirruEdnKeyword(b)) => a == b,
-      (CirruEdnString(a), CirruEdnString(b)) => a == b,
-      (CirruEdnQuote(a), CirruEdnQuote(b)) => a == b,
-      (CirruEdnList(a), CirruEdnList(b)) => a == b,
-      (CirruEdnSet(a), CirruEdnSet(b)) => a == b,
-      (CirruEdnMap(a), CirruEdnMap(b)) => a == b,
-      (CirruEdnRecord(name1, fields1, values1), CirruEdnRecord(name2, fields2, values2)) => {
+      (Self::Nil, Self::Nil) => true,
+      (Self::Bool(a), Self::Bool(b)) => a == b,
+      (Self::Number(a), Self::Number(b)) => a == b,
+      (Self::Symbol(a), Self::Symbol(b)) => a == b,
+      (Self::Keyword(a), Self::Keyword(b)) => a == b,
+      (Self::Str(a), Self::Str(b)) => a == b,
+      (Self::Quote(a), Self::Quote(b)) => a == b,
+      (Self::List(a), Self::List(b)) => a == b,
+      (Self::Set(a), Self::Set(b)) => a == b,
+      (Self::Map(a), Self::Map(b)) => a == b,
+      (Self::Record(name1, fields1, values1), Self::Record(name2, fields2, values2)) => {
         name1 == name2 && fields1 == fields2 && values1 == values2
       }
       (_, _) => false,
