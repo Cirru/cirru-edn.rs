@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use cirru_edn::{parse_cirru_edn, write_cirru_edn};
+use cirru_edn;
 use std::fs;
 use std::io::Error;
 
@@ -9,9 +9,9 @@ fn main() -> Result<(), Error> {
   // let large_file_path = "/Users/chen/repo/calcit-lang/runner.rs/src/cirru/calcit-core.cirru";
   let large_file_path = "/Users/chen/repo/cirru/calcit-editor/calcit.cirru";
   let content = fs::read_to_string(large_file_path)?;
-  let d = parse_cirru_edn(content).unwrap();
+  let d = cirru_edn::parse(&content).unwrap();
 
-  println!("{}", write_cirru_edn(d));
+  println!("{}", cirru_edn::format(&d));
 
   Ok(())
 }

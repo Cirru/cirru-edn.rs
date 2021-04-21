@@ -7,11 +7,11 @@ cargo add cirru_edn
 ```
 
 ```rs
-use cirru_edn::{parse_cirru_edn, write_cirru_edn, CirruEdn};
+use cirru_edn;
 
-parse_cirru_edn(String::from("[] 1 2 true")); // Result<CirruEdn, String>
+cirru_edn::parse("[] 1 2 true"); // Result<Edn, String>
 
-write_cirru_edn(data); // String
+cirru_edn::format(data); // String
 ```
 
 ### License
