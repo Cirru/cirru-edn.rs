@@ -11,7 +11,7 @@ fn main() -> Result<(), Error> {
   let content = fs::read_to_string(large_file_path)?;
   let d = cirru_edn::parse(&content).unwrap();
 
-  println!("{}", cirru_edn::format(&d));
+  println!("{}", cirru_edn::format(&d, true));
 
   Ok(())
 }
