@@ -239,8 +239,8 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 }
 
 /// generate string fro, Edn
-pub fn format(data: &Edn) -> String {
-  let options = CirruWriterOptions { use_inline: true };
+pub fn format(data: &Edn, use_inline: bool) -> String {
+  let options = CirruWriterOptions { use_inline };
   match assemble_cirru_node(&data) {
     Cirru::Leaf(s) => cirru_parser::format(
       &Cirru::List(vec![

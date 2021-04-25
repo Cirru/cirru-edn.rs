@@ -55,34 +55,43 @@ fn set_parsing() {
 
 #[test]
 fn edn_formatting() {
-  assert_eq!(cirru_edn::format(&Edn::Nil), "\ndo nil\n");
-  assert_eq!(cirru_edn::format(&Edn::Bool(true)), "\ndo true\n");
-  assert_eq!(cirru_edn::format(&Edn::Bool(false)), "\ndo false\n");
+  assert_eq!(cirru_edn::format(&Edn::Nil, true), "\ndo nil\n");
+  assert_eq!(cirru_edn::format(&Edn::Bool(true), true), "\ndo true\n");
+  assert_eq!(cirru_edn::format(&Edn::Bool(false), true), "\ndo false\n");
 
-  assert_eq!(cirru_edn::format(&Edn::Number(1.0)), "\ndo 1\n");
-  assert_eq!(cirru_edn::format(&Edn::Number(1.1)), "\ndo 1.1\n");
-  assert_eq!(cirru_edn::format(&Edn::Number(-1.1)), "\ndo -1.1\n");
+  assert_eq!(cirru_edn::format(&Edn::Number(1.0), true), "\ndo 1\n");
+  assert_eq!(cirru_edn::format(&Edn::Number(1.1), true), "\ndo 1.1\n");
+  assert_eq!(cirru_edn::format(&Edn::Number(-1.1), true), "\ndo -1.1\n");
 
   assert_eq!(
-    cirru_edn::format(&Edn::Symbol(String::from("a"))),
+    cirru_edn::format(&Edn::Symbol(String::from("a")), true),
     "\ndo 'a\n"
   );
   assert_eq!(
-    cirru_edn::format(&Edn::Keyword(String::from("a"))),
+    cirru_edn::format(&Edn::Keyword(String::from("a")), true),
     "\ndo :a\n"
   );
-  assert_eq!(cirru_edn::format(&Edn::Str(String::from("a"))), "\ndo |a\n");
-  assert_eq!(cirru_edn::format(&Edn::Str(String::from("a"))), "\ndo |a\n");
+  assert_eq!(
+    cirru_edn::format(&Edn::Str(String::from("a")), true),
+    "\ndo |a\n"
+  );
+  assert_eq!(
+    cirru_edn::format(&Edn::Str(String::from("a")), true),
+    "\ndo |a\n"
+  );
 }
 
 #[test]
 fn list_writing() {
   assert_eq!(
-    cirru_edn::format(&Edn::List(vec![
-      Edn::Number(1.0),
-      Edn::Number(2.0),
-      Edn::List(vec![Edn::Number(3.0)])
-    ])),
+    cirru_edn::format(
+      &Edn::List(vec![
+        Edn::Number(1.0),
+        Edn::Number(2.0),
+        Edn::List(vec![Edn::Number(3.0)])
+      ]),
+      true
+    ),
     "\n[] 1 2 $ [] 3\n"
   );
 }
@@ -94,7 +103,7 @@ fn set_writing() {
   v.insert(Edn::List(vec![Edn::Number(3.0)]));
 
   // TODO order is not stable
-  let r = cirru_edn::format(&Edn::Set(v));
+  let r = cirru_edn::format(&Edn::Set(v), true);
   let r1 = "\n#{} ([] 3) 1\n";
   let r2 = "\n#{} 1 $ [] 3\n";
 
@@ -148,7 +157,10 @@ fn demo_parsing() {
 
   let v1 = cirru_edn::parse(DICT_DEMO).unwrap();
   let v2 = cirru_edn::parse(DICT_DEMO2).unwrap();
-  assert_eq!(cirru_edn::parse(&cirru_edn::format(&v1)), Ok(v1.clone()));
+  assert_eq!(
+    cirru_edn::parse(&cirru_edn::format(&v1, true)),
+    Ok(v1.clone())
+  );
   assert_eq!(v1, v2);
 }
 

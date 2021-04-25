@@ -11,7 +11,7 @@ use cirru_edn;
 
 cirru_edn::parse("[] 1 2 true"); // Result<Edn, String>
 
-cirru_edn::format(data); // String
+cirru_edn::format(data, /* use_inline */ true); // String.
 ```
 
 ### License
