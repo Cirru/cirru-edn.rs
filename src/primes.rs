@@ -182,22 +182,29 @@ impl Ord for Edn {
       (_, Self::List(_)) => Greater,
 
       (Self::Set(a), Self::Set(b)) => match a.len().cmp(&b.len()) {
-        Equal => {
-          unreachable!("TODO sets are not cmp ed") // TODO
-        }
+        Equal => unreachable!("TODO sets are not cmp ed"), // TODO
         a => a,
       },
       (Self::Set(_), _) => Less,
       (_, Self::Set(_)) => Greater,
 
       (Self::Map(a), Self::Map(b)) => {
-        unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)) // TODO
+        match a.len().cmp(&b.len()) {
+          Equal => unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)), // TODO
+          a => a,
+        }
       }
       (Self::Map(_), _) => Less,
       (_, Self::Map(_)) => Greater,
 
-      (Self::Record(_name1, _fields1, _values1), Self::Record(_name2, _fields2, _values2)) => {
-        unreachable!("TODO records are not cmp ed") // TODO
+      (Self::Record(name1, fields1, values1), Self::Record(name2, fields2, values2)) => {
+        match name1.cmp(name2) {
+          Equal => match fields1.cmp(&fields2) {
+            Equal => values1.cmp(&values2),
+            a => a,
+          },
+          a => a,
+        }
       }
     }
   }

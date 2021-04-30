@@ -54,35 +54,37 @@ fn set_parsing() {
 }
 
 #[test]
-fn edn_formatting() {
-  assert_eq!(cirru_edn::format(&Edn::Nil, true), "\ndo nil\n");
-  assert_eq!(cirru_edn::format(&Edn::Bool(true), true), "\ndo true\n");
-  assert_eq!(cirru_edn::format(&Edn::Bool(false), true), "\ndo false\n");
+fn edn_formatting() -> Result<(), String> {
+  assert_eq!(cirru_edn::format(&Edn::Nil, true)?, "\ndo nil\n");
+  assert_eq!(cirru_edn::format(&Edn::Bool(true), true)?, "\ndo true\n");
+  assert_eq!(cirru_edn::format(&Edn::Bool(false), true)?, "\ndo false\n");
 
-  assert_eq!(cirru_edn::format(&Edn::Number(1.0), true), "\ndo 1\n");
-  assert_eq!(cirru_edn::format(&Edn::Number(1.1), true), "\ndo 1.1\n");
-  assert_eq!(cirru_edn::format(&Edn::Number(-1.1), true), "\ndo -1.1\n");
+  assert_eq!(cirru_edn::format(&Edn::Number(1.0), true)?, "\ndo 1\n");
+  assert_eq!(cirru_edn::format(&Edn::Number(1.1), true)?, "\ndo 1.1\n");
+  assert_eq!(cirru_edn::format(&Edn::Number(-1.1), true)?, "\ndo -1.1\n");
 
   assert_eq!(
-    cirru_edn::format(&Edn::Symbol(String::from("a")), true),
+    cirru_edn::format(&Edn::Symbol(String::from("a")), true)?,
     "\ndo 'a\n"
   );
   assert_eq!(
-    cirru_edn::format(&Edn::Keyword(String::from("a")), true),
+    cirru_edn::format(&Edn::Keyword(String::from("a")), true)?,
     "\ndo :a\n"
   );
   assert_eq!(
-    cirru_edn::format(&Edn::Str(String::from("a")), true),
+    cirru_edn::format(&Edn::Str(String::from("a")), true)?,
     "\ndo |a\n"
   );
   assert_eq!(
-    cirru_edn::format(&Edn::Str(String::from("a")), true),
+    cirru_edn::format(&Edn::Str(String::from("a")), true)?,
     "\ndo |a\n"
   );
+
+  Ok(())
 }
 
 #[test]
-fn list_writing() {
+fn list_writing() -> Result<(), String> {
   assert_eq!(
     cirru_edn::format(
       &Edn::List(vec![
@@ -91,23 +93,26 @@ fn list_writing() {
         Edn::List(vec![Edn::Number(3.0)])
       ]),
       true
-    ),
+    )?,
     "\n[] 1 2 $ [] 3\n"
   );
+
+  Ok(())
 }
 
 #[test]
-fn set_writing() {
+fn set_writing() -> Result<(), String> {
   let mut v = HashSet::new();
   v.insert(Edn::Number(1.0));
   v.insert(Edn::List(vec![Edn::Number(3.0)]));
 
   // TODO order is not stable
-  let r = cirru_edn::format(&Edn::Set(v), true);
+  let r = cirru_edn::format(&Edn::Set(v), true)?;
   let r1 = "\n#{} ([] 3) 1\n";
   let r2 = "\n#{} 1 $ [] 3\n";
 
   assert!(r == r1 || r == r2);
+  Ok(())
 }
 
 const RECORD_DEMO: &str = r#"
@@ -138,7 +143,7 @@ const DICT_DEMO2: &str = r#"
 "#;
 
 #[test]
-fn demo_parsing() {
+fn demo_parsing() -> Result<(), String> {
   // println!("{:?}", cirru_edn::parse(RECORD_DEMO));
   // println!("{:?}", cirru_edn::parse(DICT_DEMO));
 
@@ -158,10 +163,12 @@ fn demo_parsing() {
   let v1 = cirru_edn::parse(DICT_DEMO).unwrap();
   let v2 = cirru_edn::parse(DICT_DEMO2).unwrap();
   assert_eq!(
-    cirru_edn::parse(&cirru_edn::format(&v1, true)),
+    cirru_edn::parse(&cirru_edn::format(&v1, true)?),
     Ok(v1.clone())
   );
   assert_eq!(v1, v2);
+
+  Ok(())
 }
 
 #[test]
