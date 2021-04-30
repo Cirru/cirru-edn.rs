@@ -1,7 +1,3 @@
-#[macro_use]
-extern crate lazy_static;
-
-use cirru_edn;
 use std::fs;
 use std::io::Error;
 
@@ -11,7 +7,7 @@ fn main() -> Result<(), Error> {
   let content = fs::read_to_string(large_file_path)?;
   let d = cirru_edn::parse(&content).unwrap();
 
-  println!("{}", cirru_edn::format(&d, true));
+  println!("{}", cirru_edn::format(&d, true).unwrap());
 
   Ok(())
 }

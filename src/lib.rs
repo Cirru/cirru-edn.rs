@@ -42,7 +42,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
         '"' | '|' => Ok(Edn::Str(String::from(&s1[1..]))),
         _ => {
           if matches_float(s1) {
-            let f: f32 = s1.parse().unwrap();
+            let f: f64 = s1.parse().unwrap();
             Ok(Edn::Number(f))
           } else {
             Err(format!("Unknown token: {:?}", s1))
@@ -160,7 +160,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
 }
 
 lazy_static! {
-    static ref RE_FLOAT: Regex = Regex::new("^-?[\\d]+(\\.[\\d]+)?$").unwrap(); // TODO special cases not handled
+  static ref RE_FLOAT: Regex = Regex::new("^-?[\\d]+(\\.[\\d]+)?$").unwrap(); // TODO special cases not handled
 }
 
 fn matches_float(x: &str) -> bool {
@@ -239,7 +239,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 }
 
 /// generate string fro, Edn
-pub fn format(data: &Edn, use_inline: bool) -> String {
+pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
   let options = CirruWriterOptions { use_inline };
   match assemble_cirru_node(&data) {
     Cirru::Leaf(s) => cirru_parser::format(
