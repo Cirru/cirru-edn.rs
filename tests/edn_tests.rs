@@ -202,3 +202,32 @@ fn debug_format() {
 
   assert_eq!(format!("{}", code), "([] (quote (a b)))");
 }
+
+#[test]
+fn test_reader() -> Result<(), String> {
+  assert_eq!(Edn::Bool(true).read_bool()?, true);
+  assert_eq!(
+    Edn::Str(String::from("a")).read_string()?,
+    String::from("a")
+  );
+  assert_eq!(
+    Edn::Symbol(String::from("a")).read_symbol_string()?,
+    String::from("a")
+  );
+  assert_eq!(
+    Edn::Keyword(String::from("a")).read_keyword_string()?,
+    String::from("a")
+  );
+  assert_eq!(Edn::Number(1.1).read_number()?, 1.1);
+  assert_eq!(
+    Edn::List(vec![Edn::Number(1.0)]).vec_get(0)?,
+    Edn::Number(1.0)
+  );
+  assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(1)?, Edn::Nil);
+
+  let mut dict = HashMap::new();
+  dict.insert(Edn::Keyword(String::from("k")), Edn::Number(1.1));
+  assert_eq!(Edn::Map(dict.to_owned()).map_get("k")?.read_number()?, 1.1);
+  assert_eq!(Edn::Map(dict).map_get("k2")?, Edn::Nil);
+  Ok(())
+}

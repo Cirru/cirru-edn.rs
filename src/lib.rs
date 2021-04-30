@@ -42,7 +42,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
         '"' | '|' => Ok(Edn::Str(String::from(&s1[1..]))),
         _ => {
           if matches_float(s1) {
-            let f: f32 = s1.parse().unwrap();
+            let f: f64 = s1.parse().unwrap();
             Ok(Edn::Number(f))
           } else {
             Err(format!("Unknown token: {:?}", s1))
