@@ -284,7 +284,15 @@ impl Edn {
   pub fn read_list(&self) -> Result<Vec<Edn>, String> {
     match self {
       Edn::List(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Err(String::from("cannot get from nil")),
+      Edn::Nil => Err(String::from("cannot read list from nil")),
+      a => Err(format!("failed to convert to vec: {}", a)),
+    }
+  }
+
+  pub fn read_list_or_nil(&self) -> Result<Vec<Edn>, String> {
+    match self {
+      Edn::List(xs) => Ok(xs.to_owned()),
+      Edn::Nil => Ok(vec![]),
       a => Err(format!("failed to convert to vec: {}", a)),
     }
   }
@@ -292,7 +300,7 @@ impl Edn {
   pub fn read_set(&self) -> Result<HashSet<Edn>, String> {
     match self {
       Edn::Set(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Err(String::from("cannot get set from nil")),
+      Edn::Nil => Err(String::from("cannot read set from nil")),
       a => Err(format!("failed to convert to set: {}", a)),
     }
   }
@@ -309,7 +317,7 @@ impl Edn {
   pub fn read_map(&self) -> Result<HashMap<Edn, Edn>, String> {
     match self {
       Edn::Map(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Err(String::from("cannot map get from nil")),
+      Edn::Nil => Err(String::from("cannot read map from nil")),
       a => Err(format!("failed to convert to map: {}", a)),
     }
   }
