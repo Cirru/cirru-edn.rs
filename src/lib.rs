@@ -13,15 +13,15 @@ use std::collections::HashSet;
 pub fn parse(s: &str) -> Result<Edn, String> {
   match cirru_parser::parse(&s) {
     Ok(nodes) => match nodes {
-      Cirru::Leaf(_) => Err(String::from("Expected exprs")),
+      Cirru::Leaf(s) => Err(format!("expected expr at top level, got leaf: {}", s)),
       Cirru::List(xs) => {
         if xs.len() == 1 {
-          match xs[0] {
-            Cirru::Leaf(_) => Err(String::from("Expected expr for data")),
+          match &xs[0] {
+            Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {}", s)),
             Cirru::List(_) => extract_cirru_edn(&xs[0]),
           }
         } else {
-          Err(String::from("Expected 1 expr for edn"))
+          Err(format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs))
         }
       }
     },
@@ -35,7 +35,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       "nil" => Ok(Edn::Nil),
       "true" => Ok(Edn::Bool(true)),
       "false" => Ok(Edn::Bool(false)),
-      "" => Err(String::from("Empty string is invalid")),
+      "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
         '\'' => Ok(Edn::Symbol(String::from(&s1[1..]))),
         ':' => Ok(Edn::Keyword(String::from(&s1[1..]))),
@@ -45,14 +45,14 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             let f: f64 = s1.parse().unwrap();
             Ok(Edn::Number(f))
           } else {
-            Err(format!("Unknown token: {:?}", s1))
+            Err(format!("unknown token for edn value: {:?}", s1))
           }
         }
       },
     },
     Cirru::List(xs) => {
       if xs.is_empty() {
-        Err(String::from("empty expr is invalid"))
+        Err(String::from("empty expr is invalid for edn"))
       } else {
         match &xs[0] {
           Cirru::Leaf(s) => match s.as_str() {
@@ -60,14 +60,14 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               if xs.len() == 2 {
                 Ok(Edn::Quote(xs[1].clone()))
               } else {
-                Err(String::from("Missing quote value"))
+                Err(String::from("missing edn quote value"))
               }
             }
             "do" => {
               if xs.len() == 2 {
                 extract_cirru_edn(&xs[1])
               } else {
-                Err(String::from("Missing do value"))
+                Err(String::from("missing edn do value"))
               }
             }
             "[]" => {
@@ -101,14 +101,14 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               for (idx, x) in xs.iter().enumerate() {
                 if idx > 0 {
                   match x {
-                    Cirru::Leaf(s) => return Err(format!("Invalid map entry: {}", s)),
+                    Cirru::Leaf(s) => return Err(format!("expected a pair, invalid map entry: {}", s)),
                     Cirru::List(ys) => {
                       if ys.len() == 2 {
                         match (extract_cirru_edn(&ys[0]), extract_cirru_edn(&ys[1])) {
                           (Ok(k), Ok(v)) => {
                             zs.insert(k, v);
                           }
-                          (e1, e2) => return Err(format!("invalid map entry: {:?} {:?}", e1, e2)),
+                          (e1, e2) => return Err(format!("invalid map entry pair: {:?} {:?}", e1, e2)),
                         }
                       }
                     }
@@ -128,7 +128,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 for (idx, x) in xs.iter().enumerate() {
                   if idx > 1 {
                     match x {
-                      Cirru::Leaf(s) => return Err(format!("Invalid record entry: {}", s)),
+                      Cirru::Leaf(s) => return Err(format!("expected record, invalid record entry: {}", s)),
                       Cirru::List(ys) => {
                         if ys.len() == 2 {
                           match (&ys[0], extract_cirru_edn(&ys[1])) {
@@ -136,9 +136,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                               fields.push(s.clone());
                               values.push(v);
                             }
-                            (e1, e2) => {
-                              return Err(format!("invalid map entry: {:?} {:?}", e1, e2))
-                            }
+                            (e1, e2) => return Err(format!("invalid map entry: {:?} {:?}", e1, e2)),
                           }
                         }
                       }
@@ -147,12 +145,12 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 }
                 Ok(Edn::Record(name, fields, values))
               } else {
-                Err(String::from("Not enough items for record"))
+                Err(String::from("insufficient items for edn record"))
               }
             }
-            a => Err(format!("Invalid operator: {}", a)),
+            a => Err(format!("invalid operator for edn: {}", a)),
           },
-          Cirru::List(a) => Err(format!("Invalid operator: {:?}", a)),
+          Cirru::List(a) => Err(format!("invalid nodes for edn: {:?}", a)),
         }
       }
     }
@@ -213,18 +211,12 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Map(xs) => {
       let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("{}"))];
       for (k, v) in xs {
-        ys.push(Cirru::List(vec![
-          assemble_cirru_node(k),
-          assemble_cirru_node(v),
-        ]))
+        ys.push(Cirru::List(vec![assemble_cirru_node(k), assemble_cirru_node(v)]))
       }
       Cirru::List(ys)
     }
     Edn::Record(name, fields, values) => {
-      let mut ys: Vec<Cirru> = vec![
-        Cirru::Leaf(String::from("%{}")),
-        Cirru::Leaf(String::from(name)),
-      ];
+      let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("%{}")), Cirru::Leaf(String::from(name))];
       for idx in 0..fields.len() {
         let v = &values[idx];
         ys.push(Cirru::List(vec![

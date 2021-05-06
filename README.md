@@ -6,8 +6,8 @@
 cargo add cirru_edn
 ```
 
-```rs
-use cirru_edn;
+```rust
+use cirru_edn::Edn;
 
 cirru_edn::parse("[] 1 2 true"); // Result<Edn, String>
 
