@@ -108,7 +108,8 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                           (Ok(k), Ok(v)) => {
                             zs.insert(k, v);
                           }
-                          (e1, e2) => return Err(format!("invalid map entry pair: {:?} {:?}", e1, e2)),
+                          (Err(e), _) => return Err(format!("invalid map entry `{}` from `{}`", e, &ys[0])),
+                          (Ok(k), Err(e)) => return Err(format!("invalid map entry for `{}`, got {}", k, e)),
                         }
                       }
                     }
@@ -136,7 +137,10 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                               fields.push(s.clone());
                               values.push(v);
                             }
-                            (e1, e2) => return Err(format!("invalid map entry: {:?} {:?}", e1, e2)),
+                            (Cirru::Leaf(s), Err(e)) => {
+                              return Err(format!("invalid record value for `{}`, got: {}", s, e))
+                            }
+                            (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {:?}", zs)),
                           }
                         }
                       }
