@@ -9,14 +9,8 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Bool(true)), cirru_edn::parse("do true"));
   assert_eq!(Ok(Edn::Bool(false)), cirru_edn::parse("do false"));
 
-  assert_eq!(
-    Ok(Edn::Symbol(String::from("a"))),
-    cirru_edn::parse("do 'a")
-  );
-  assert_eq!(
-    Ok(Edn::Keyword(String::from("k"))),
-    cirru_edn::parse("do :k")
-  );
+  assert_eq!(Ok(Edn::Symbol(String::from("a"))), cirru_edn::parse("do 'a"));
+  assert_eq!(Ok(Edn::Keyword(String::from("k"))), cirru_edn::parse("do :k"));
   assert_eq!(Ok(Edn::Str(String::from("s"))), cirru_edn::parse("do |s"));
 
   assert_eq!(
@@ -63,22 +57,10 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::Number(1.1), true)?, "\ndo 1.1\n");
   assert_eq!(cirru_edn::format(&Edn::Number(-1.1), true)?, "\ndo -1.1\n");
 
-  assert_eq!(
-    cirru_edn::format(&Edn::Symbol(String::from("a")), true)?,
-    "\ndo 'a\n"
-  );
-  assert_eq!(
-    cirru_edn::format(&Edn::Keyword(String::from("a")), true)?,
-    "\ndo :a\n"
-  );
-  assert_eq!(
-    cirru_edn::format(&Edn::Str(String::from("a")), true)?,
-    "\ndo |a\n"
-  );
-  assert_eq!(
-    cirru_edn::format(&Edn::Str(String::from("a")), true)?,
-    "\ndo |a\n"
-  );
+  assert_eq!(cirru_edn::format(&Edn::Symbol(String::from("a")), true)?, "\ndo 'a\n");
+  assert_eq!(cirru_edn::format(&Edn::Keyword(String::from("a")), true)?, "\ndo :a\n");
+  assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
+  assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
 
   Ok(())
 }
@@ -162,10 +144,7 @@ fn demo_parsing() -> Result<(), String> {
 
   let v1 = cirru_edn::parse(DICT_DEMO).unwrap();
   let v2 = cirru_edn::parse(DICT_DEMO2).unwrap();
-  assert_eq!(
-    cirru_edn::parse(&cirru_edn::format(&v1, true)?),
-    Ok(v1.clone())
-  );
+  assert_eq!(cirru_edn::parse(&cirru_edn::format(&v1, true)?), Ok(v1.clone()));
   assert_eq!(v1, v2);
 
   Ok(())
@@ -205,29 +184,20 @@ fn debug_format() {
 
 #[test]
 fn test_reader() -> Result<(), String> {
-  assert_eq!(Edn::Bool(true).read_bool()?, true);
-  assert_eq!(
-    Edn::Str(String::from("a")).read_string()?,
-    String::from("a")
-  );
-  assert_eq!(
-    Edn::Symbol(String::from("a")).read_symbol_string()?,
-    String::from("a")
-  );
+  assert!(Edn::Bool(true).read_bool()?);
+  assert_eq!(Edn::Str(String::from("a")).read_string()?, String::from("a"));
+  assert_eq!(Edn::Symbol(String::from("a")).read_symbol_string()?, String::from("a"));
   assert_eq!(
     Edn::Keyword(String::from("a")).read_keyword_string()?,
     String::from("a")
   );
-  assert_eq!(Edn::Number(1.1).read_number()?, 1.1);
-  assert_eq!(
-    Edn::List(vec![Edn::Number(1.0)]).vec_get(0)?,
-    Edn::Number(1.0)
-  );
+  assert!((Edn::Number(1.1).read_number()? - 1.1).abs() < f64::EPSILON);
+  assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(0)?, Edn::Number(1.0));
   assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(1)?, Edn::Nil);
 
   let mut dict = HashMap::new();
   dict.insert(Edn::Keyword(String::from("k")), Edn::Number(1.1));
-  assert_eq!(Edn::Map(dict.to_owned()).map_get("k")?.read_number()?, 1.1);
+  assert!((Edn::Map(dict.to_owned()).map_get("k")?.read_number()? - 1.1).abs() < f64::EPSILON);
   assert_eq!(Edn::Map(dict).map_get("k2")?, Edn::Nil);
   Ok(())
 }
