@@ -236,11 +236,9 @@ pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
   let options = CirruWriterOptions { use_inline };
   match assemble_cirru_node(data) {
     Cirru::Leaf(s) => cirru_parser::format(
-      &Cirru::List(vec![
-        (Cirru::List(vec![Cirru::Leaf(String::from("do")), Cirru::Leaf(s)])),
-      ]),
+      &[(Cirru::List(vec![Cirru::Leaf(String::from("do")), Cirru::Leaf(s)]))],
       options,
     ),
-    Cirru::List(xs) => cirru_parser::format(&Cirru::List(vec![(Cirru::List(xs))]), options),
+    Cirru::List(xs) => cirru_parser::format(&[(Cirru::List(xs))], options),
   }
 }
