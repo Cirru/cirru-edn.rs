@@ -197,15 +197,13 @@ impl Ord for Edn {
       (Self::Map(_), _) => Less,
       (_, Self::Map(_)) => Greater,
 
-      (Self::Record(name1, fields1, values1), Self::Record(name2, fields2, values2)) => {
-        match name1.cmp(name2) {
-          Equal => match fields1.cmp(&fields2) {
-            Equal => values1.cmp(&values2),
-            a => a,
-          },
+      (Self::Record(name1, fields1, values1), Self::Record(name2, fields2, values2)) => match name1.cmp(name2) {
+        Equal => match fields1.cmp(fields2) {
+          Equal => values1.cmp(values2),
           a => a,
-        }
-      }
+        },
+        a => a,
+      },
     }
   }
 }
@@ -223,7 +221,7 @@ impl PartialEq for Edn {
     match (self, other) {
       (Self::Nil, Self::Nil) => true,
       (Self::Bool(a), Self::Bool(b)) => a == b,
-      (Self::Number(a), Self::Number(b)) => a == b,
+      (Self::Number(a), Self::Number(b)) => (a - b).abs() < f64::EPSILON,
       (Self::Symbol(a), Self::Symbol(b)) => a == b,
       (Self::Keyword(a), Self::Keyword(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
@@ -350,10 +348,10 @@ impl Edn {
     let key: String = k.to_owned();
     match self {
       Edn::Map(xs) => {
-        if xs.contains_key(&Edn::Keyword(key.clone())) {
-          Ok(xs[&Edn::Keyword(key)].clone())
-        } else if xs.contains_key(&Edn::Str(key.clone())) {
-          Ok(xs[&Edn::Str(key)].clone())
+        if xs.contains_key(&Edn::Keyword(key.to_owned())) {
+          Ok(xs[&Edn::Keyword(key)].to_owned())
+        } else if xs.contains_key(&Edn::Str(key.to_owned())) {
+          Ok(xs[&Edn::Str(key)].to_owned())
         } else {
           Ok(Edn::Nil)
         }

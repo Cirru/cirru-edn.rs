@@ -2,6 +2,10 @@
 
 ### Usages
 
+![](https://img.shields.io/crates/v/cirru_edn?style=flat-square)
+
+[Rust Docs](https://docs.rs/crate/cirru_edn/).
+
 ```bash
 cargo add cirru_edn
 ```

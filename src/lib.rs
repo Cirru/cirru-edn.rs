@@ -11,20 +11,17 @@ use std::collections::HashSet;
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {
-  match cirru_parser::parse(&s) {
-    Ok(nodes) => match nodes {
-      Cirru::Leaf(s) => Err(format!("expected expr at top level, got leaf: {}", s)),
-      Cirru::List(xs) => {
-        if xs.len() == 1 {
-          match &xs[0] {
-            Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {}", s)),
-            Cirru::List(_) => extract_cirru_edn(&xs[0]),
-          }
-        } else {
-          Err(format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs))
+  match cirru_parser::parse(s) {
+    Ok(xs) => {
+      if xs.len() == 1 {
+        match &xs[0] {
+          Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {}", s)),
+          Cirru::List(_) => extract_cirru_edn(&xs[0]),
         }
+      } else {
+        Err(format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs))
       }
-    },
+    }
     Err(e) => Err(e),
   }
 }
@@ -37,9 +34,9 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       "false" => Ok(Edn::Bool(false)),
       "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
-        '\'' => Ok(Edn::Symbol(String::from(&s1[1..]))),
-        ':' => Ok(Edn::Keyword(String::from(&s1[1..]))),
-        '"' | '|' => Ok(Edn::Str(String::from(&s1[1..]))),
+        '\'' => Ok(Edn::Symbol(s1[1..].to_owned())),
+        ':' => Ok(Edn::Keyword(s1[1..].to_owned())),
+        '"' | '|' => Ok(Edn::Str(s1[1..].to_owned())),
         _ => {
           if matches_float(s1) {
             let f: f64 = s1.parse().unwrap();
@@ -58,7 +55,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
           Cirru::Leaf(s) => match s.as_str() {
             "quote" => {
               if xs.len() == 2 {
-                Ok(Edn::Quote(xs[1].clone()))
+                Ok(Edn::Quote(xs[1].to_owned()))
               } else {
                 Err(String::from("missing edn quote value"))
               }
@@ -120,7 +117,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             }
             "%{}" => {
               if xs.len() >= 3 {
-                let name = match xs[1].clone() {
+                let name = match xs[1].to_owned() {
                   Cirru::Leaf(s) => s,
                   Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
                 };
@@ -134,7 +131,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                         if ys.len() == 2 {
                           match (&ys[0], extract_cirru_edn(&ys[1])) {
                             (Cirru::Leaf(s), Ok(v)) => {
-                              fields.push(s.clone());
+                              fields.push(s.to_owned());
                               values.push(v);
                             }
                             (Cirru::Leaf(s), Err(e)) => {
@@ -184,20 +181,20 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     }
     Edn::Symbol(s) => {
       let mut leaf = String::from("'");
-      leaf.push_str(&s);
+      leaf.push_str(s);
       Cirru::Leaf(leaf)
     }
     Edn::Keyword(s) => {
       let mut leaf = String::from(":");
-      leaf.push_str(&s);
+      leaf.push_str(s);
       Cirru::Leaf(leaf)
     }
     Edn::Str(s) => {
       let mut leaf = String::from("|");
-      leaf.push_str(&s);
+      leaf.push_str(s);
       Cirru::Leaf(leaf)
     }
-    Edn::Quote(v) => Cirru::List(vec![Cirru::Leaf(String::from("quote")), (*v).clone()]),
+    Edn::Quote(v) => Cirru::List(vec![Cirru::Leaf(String::from("quote")), (*v).to_owned()]),
     Edn::List(xs) => {
       let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("[]"))];
       for x in xs {
@@ -224,7 +221,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       for idx in 0..fields.len() {
         let v = &values[idx];
         ys.push(Cirru::List(vec![
-          Cirru::Leaf(fields[idx].clone()),
+          Cirru::Leaf(fields[idx].to_owned()),
           assemble_cirru_node(v),
         ]));
       }
@@ -237,13 +234,11 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 /// generate string fro, Edn
 pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
   let options = CirruWriterOptions { use_inline };
-  match assemble_cirru_node(&data) {
+  match assemble_cirru_node(data) {
     Cirru::Leaf(s) => cirru_parser::format(
-      &Cirru::List(vec![
-        (Cirru::List(vec![Cirru::Leaf(String::from("do")), Cirru::Leaf(s)])),
-      ]),
+      &[(Cirru::List(vec![Cirru::Leaf(String::from("do")), Cirru::Leaf(s)]))],
       options,
     ),
-    Cirru::List(xs) => cirru_parser::format(&Cirru::List(vec![(Cirru::List(xs))]), options),
+    Cirru::List(xs) => cirru_parser::format(&[(Cirru::List(xs))], options),
   }
 }
