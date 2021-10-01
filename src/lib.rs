@@ -67,6 +67,16 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 Err(String::from("missing edn do value"))
               }
             }
+            "::" => {
+              if xs.len() == 3 {
+                Ok(Edn::Tuple(
+                  Box::new(extract_cirru_edn(&xs[1])?),
+                  Box::new(extract_cirru_edn(&xs[2])?),
+                ))
+              } else {
+                Err(String::from("tuple expected 2 values"))
+              }
+            }
             "[]" => {
               let mut ys: Vec<Edn> = vec![];
               for (idx, x) in xs.iter().enumerate() {
@@ -226,6 +236,12 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
         ]));
       }
 
+      Cirru::List(ys)
+    }
+    Edn::Tuple(tag, v) => {
+      let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("::"))];
+      ys.push(assemble_cirru_node(&*tag.to_owned()));
+      ys.push(assemble_cirru_node(&*v.to_owned()));
       Cirru::List(ys)
     }
   }

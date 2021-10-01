@@ -20,6 +20,14 @@ fn edn_parsing() {
 
   assert_eq!(Ok(Edn::Number(2.0)), cirru_edn::parse("do 2"));
   assert_eq!(Ok(Edn::Number(-2.2)), cirru_edn::parse("do -2.2"));
+
+  assert_eq!(
+    Ok(Edn::Tuple(
+      Box::new(Edn::Keyword(String::from("a"))),
+      Box::new(Edn::Number(1.0))
+    )),
+    cirru_edn::parse(":: :a 1")
+  );
 }
 
 #[test]
@@ -61,6 +69,14 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::Keyword(String::from("a")), true)?, "\ndo :a\n");
   assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
   assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
+
+  assert_eq!(
+    cirru_edn::format(
+      &Edn::Tuple(Box::new(Edn::Keyword(String::from("a"))), Box::new(Edn::Number(1.0))),
+      true
+    )?,
+    "\n:: :a 1\n"
+  );
 
   Ok(())
 }

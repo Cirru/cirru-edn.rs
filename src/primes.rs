@@ -19,6 +19,7 @@ pub enum Edn {
   Keyword(String),
   Str(String), // name collision
   Quote(Cirru),
+  Tuple(Box<Edn>, Box<Edn>),
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
@@ -45,6 +46,7 @@ impl fmt::Display for Edn {
         }
       }
       Self::Quote(v) => f.write_str(&format!("(quote {})", v)),
+      Self::Tuple(tag, v) => f.write_str(&format!("(:: {} {})", (*tag).to_string(), (*v).to_string())),
       Self::List(xs) => {
         f.write_str("([]")?;
         for x in xs {
@@ -109,6 +111,11 @@ impl Hash for Edn {
       Self::Quote(v) => {
         "quote:".hash(_state);
         v.hash(_state);
+      }
+      Self::Tuple(tag, v) => {
+        "tuple".hash(_state);
+        (*tag).hash(_state);
+        (*v).hash(_state);
       }
       Self::List(v) => {
         "list:".hash(_state);
@@ -177,6 +184,14 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
+      (Self::Tuple(tag1, v1), Self::Tuple(tag2, v2)) => match tag1.cmp(tag2) {
+        Less => Less,
+        Greater => Greater,
+        Equal => (*v1).cmp(&*v2),
+      },
+      (Self::Tuple(..), _) => Less,
+      (_, Self::Tuple(..)) => Greater,
+
       (Self::List(a), Self::List(b)) => a.cmp(b),
       (Self::List(_), _) => Less,
       (_, Self::List(_)) => Greater,
@@ -226,6 +241,7 @@ impl PartialEq for Edn {
       (Self::Keyword(a), Self::Keyword(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
       (Self::Quote(a), Self::Quote(b)) => a == b,
+      (Self::Tuple(tag1, v1), Self::Tuple(tag2, v2)) => tag1 == tag2 && v1 == v2,
       (Self::List(a), Self::List(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
