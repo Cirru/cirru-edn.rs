@@ -1,6 +1,5 @@
 use cirru_parser::Cirru;
 use core::cmp::Ord;
-use regex::Regex;
 use std::cmp::Eq;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
@@ -26,10 +25,6 @@ pub enum Edn {
   Record(String, Vec<String>, Vec<Edn>),
 }
 
-lazy_static! {
-  static ref RE_SIMPLE_TOKEN: Regex = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
-}
-
 impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
@@ -39,7 +34,7 @@ impl fmt::Display for Edn {
       Self::Symbol(s) => f.write_str(&format!("'{}", s)),
       Self::Keyword(s) => f.write_str(&format!(":{}", s)),
       Self::Str(s) => {
-        if RE_SIMPLE_TOKEN.is_match(s) {
+        if is_simple_token(s) {
           f.write_str(&format!("|{}", s))
         } else {
           f.write_str(&format!("\"|{}\"", s))
@@ -79,6 +74,15 @@ impl fmt::Display for Edn {
       }
     }
   }
+}
+
+fn is_simple_token(tok: &str) -> bool {
+  for s in tok.chars() {
+    if !matches!(s, '0'..='9' | 'A'..='Z'| 'a'..='z'|  '-' | '?' | '.'| '$' | ',') {
+      return false;
+    }
+  }
+  true
 }
 
 impl Hash for Edn {

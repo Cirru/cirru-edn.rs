@@ -1,11 +1,7 @@
-#[macro_use]
-extern crate lazy_static;
-
 mod primes;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 pub use primes::Edn;
-use regex::Regex;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -38,8 +34,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
         ':' => Ok(Edn::Keyword(s1[1..].to_owned())),
         '"' | '|' => Ok(Edn::Str(s1[1..].to_owned())),
         _ => {
-          if matches_float(s1) {
-            let f: f64 = s1.parse().unwrap();
+          if let Ok(f) = s1.trim().parse::<f64>() {
             Ok(Edn::Number(f))
           } else {
             Err(format!("unknown token for edn value: {:?}", s1))
@@ -166,14 +161,6 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       }
     }
   }
-}
-
-lazy_static! {
-  static ref RE_FLOAT: Regex = Regex::new("^-?[\\d]+(\\.[\\d]+)?$").unwrap(); // TODO special cases not handled
-}
-
-fn matches_float(x: &str) -> bool {
-  RE_FLOAT.is_match(x)
 }
 
 fn assemble_cirru_node(data: &Edn) -> Cirru {
