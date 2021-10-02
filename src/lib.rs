@@ -126,8 +126,8 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   Cirru::Leaf(s) => s,
                   Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
                 };
-                let mut fields: Vec<String> = vec![];
-                let mut values: Vec<Edn> = vec![];
+                let mut entries: Vec<(String, Edn)> = vec![];
+
                 for (idx, x) in xs.iter().enumerate() {
                   if idx > 1 {
                     match x {
@@ -136,8 +136,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                         if ys.len() == 2 {
                           match (&ys[0], extract_cirru_edn(&ys[1])) {
                             (Cirru::Leaf(s), Ok(v)) => {
-                              fields.push(s.to_owned());
-                              values.push(v);
+                              entries.push((s.to_owned(), v));
                             }
                             (Cirru::Leaf(s), Err(e)) => {
                               return Err(format!("invalid record value for `{}`, got: {}", s, e))
@@ -149,7 +148,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                     }
                   }
                 }
-                Ok(Edn::Record(name, fields, values))
+                Ok(Edn::Record(name, entries))
               } else {
                 Err(String::from("insufficient items for edn record"))
               }
@@ -213,12 +212,12 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       }
       Cirru::List(ys)
     }
-    Edn::Record(name, fields, values) => {
+    Edn::Record(name, entries) => {
       let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("%{}")), Cirru::Leaf(String::from(name))];
-      for idx in 0..fields.len() {
-        let v = &values[idx];
+      for idx in 0..entries.len() {
+        let v = &entries[idx].1;
         ys.push(Cirru::List(vec![
-          Cirru::Leaf(fields[idx].to_owned()),
+          Cirru::Leaf(entries[idx].0.to_owned()),
           assemble_cirru_node(v),
         ]));
       }
