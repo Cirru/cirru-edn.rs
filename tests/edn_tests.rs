@@ -149,12 +149,14 @@ fn demo_parsing() -> Result<(), String> {
     cirru_edn::parse(RECORD_DEMO),
     Ok(Edn::Record(
       String::from("Demo"),
-      vec![String::from("a"), String::from("b"), String::from("c")],
       vec![
-        Edn::Number(1.0),
-        Edn::Number(2.0),
-        Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
-      ]
+        (String::from("a"), Edn::Number(1.0),),
+        (String::from("b"), Edn::Number(2.0)),
+        (
+          String::from("c"),
+          Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
+        )
+      ],
     ))
   );
 

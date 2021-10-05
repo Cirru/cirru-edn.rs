@@ -1,6 +1,5 @@
 use cirru_parser::Cirru;
 use core::cmp::Ord;
-use regex::Regex;
 use std::cmp::Eq;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
@@ -23,11 +22,7 @@ pub enum Edn {
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
-  Record(String, Vec<String>, Vec<Edn>),
-}
-
-lazy_static! {
-  static ref RE_SIMPLE_TOKEN: Regex = Regex::new("^[\\d\\w\\-\\?\\.\\$,]+$").unwrap();
+  Record(String, Vec<(String, Edn)>),
 }
 
 impl fmt::Display for Edn {
@@ -39,7 +34,7 @@ impl fmt::Display for Edn {
       Self::Symbol(s) => f.write_str(&format!("'{}", s)),
       Self::Keyword(s) => f.write_str(&format!(":{}", s)),
       Self::Str(s) => {
-        if RE_SIMPLE_TOKEN.is_match(s) {
+        if is_simple_token(s) {
           f.write_str(&format!("|{}", s))
         } else {
           f.write_str(&format!("\"|{}\"", s))
@@ -68,17 +63,26 @@ impl fmt::Display for Edn {
         }
         f.write_str(")")
       }
-      Self::Record(name, fields, values) => {
+      Self::Record(name, entries) => {
         f.write_str(&format!("(%{{}} {}", name))?;
 
-        for idx in 0..fields.len() {
-          f.write_str(&format!("({} {})", fields[idx], values[idx]))?;
+        for idx in 0..entries.len() {
+          f.write_str(&format!("({} {})", entries[idx].0, entries[idx].1))?;
         }
 
         f.write_str(")")
       }
     }
   }
+}
+
+fn is_simple_token(tok: &str) -> bool {
+  for s in tok.chars() {
+    if !matches!(s, '0'..='9' | 'A'..='Z'| 'a'..='z'|  '-' | '?' | '.'| '$' | ',') {
+      return false;
+    }
+  }
+  true
 }
 
 impl Hash for Edn {
@@ -135,11 +139,10 @@ impl Hash for Edn {
           x.hash(_state)
         }
       }
-      Self::Record(name, fields, values) => {
+      Self::Record(name, entries) => {
         "record:".hash(_state);
         name.hash(_state);
-        fields.hash(_state);
-        values.hash(_state);
+        entries.hash(_state);
       }
     }
   }
@@ -212,11 +215,8 @@ impl Ord for Edn {
       (Self::Map(_), _) => Less,
       (_, Self::Map(_)) => Greater,
 
-      (Self::Record(name1, fields1, values1), Self::Record(name2, fields2, values2)) => match name1.cmp(name2) {
-        Equal => match fields1.cmp(fields2) {
-          Equal => values1.cmp(values2),
-          a => a,
-        },
+      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => match name1.cmp(name2) {
+        Equal => entries1.cmp(entries2),
         a => a,
       },
     }
@@ -245,9 +245,7 @@ impl PartialEq for Edn {
       (Self::List(a), Self::List(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
-      (Self::Record(name1, fields1, values1), Self::Record(name2, fields2, values2)) => {
-        name1 == name2 && fields1 == fields2 && values1 == values2
-      }
+      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => name1 == name2 && entries1 == entries2,
       (_, _) => false,
     }
   }
