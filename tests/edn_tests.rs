@@ -114,9 +114,9 @@ fn set_writing() -> Result<(), String> {
 }
 
 const RECORD_DEMO: &str = r#"
-%{} Demo (a 1.0)
-  b 2.0
-  c $ [] 1.0 2.0 3.0
+%{} :Demo (:a 1)
+  :b 2
+  :c $ [] 1 2 3
 "#;
 
 const DICT_DEMO: &str = r#"
@@ -164,6 +164,24 @@ fn demo_parsing() -> Result<(), String> {
   let v2 = cirru_edn::parse(DICT_DEMO2).unwrap();
   assert_eq!(cirru_edn::parse(&cirru_edn::format(&v1, true)?), Ok(v1.clone()));
   assert_eq!(v1, v2);
+
+  assert_eq!(
+    cirru_edn::format(
+      &Edn::Record(
+        String::from("Demo"),
+        vec![
+          (String::from("a"), Edn::Number(1.0),),
+          (String::from("b"), Edn::Number(2.0)),
+          (
+            String::from("c"),
+            Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
+          )
+        ],
+      ),
+      false
+    ),
+    Ok(String::from(RECORD_DEMO))
+  );
 
   Ok(())
 }
