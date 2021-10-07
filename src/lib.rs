@@ -123,7 +123,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             "%{}" => {
               if xs.len() >= 3 {
                 let name = match xs[1].to_owned() {
-                  Cirru::Leaf(s) => s,
+                  Cirru::Leaf(s) => s.strip_prefix(':').unwrap_or(&s).to_owned(),
                   Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
                 };
                 let mut entries: Vec<(String, Edn)> = vec![];
@@ -136,7 +136,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                         if ys.len() == 2 {
                           match (&ys[0], extract_cirru_edn(&ys[1])) {
                             (Cirru::Leaf(s), Ok(v)) => {
-                              entries.push((s.to_owned(), v));
+                              entries.push((s.strip_prefix(':').unwrap_or(s).to_owned(), v));
                             }
                             (Cirru::Leaf(s), Err(e)) => {
                               return Err(format!("invalid record value for `{}`, got: {}", s, e))
@@ -213,11 +213,11 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       Cirru::List(ys)
     }
     Edn::Record(name, entries) => {
-      let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("%{}")), Cirru::Leaf(String::from(name))];
-      for idx in 0..entries.len() {
-        let v = &entries[idx].1;
+      let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("%{}")), Cirru::Leaf(format!(":{}", name))];
+      for entry in entries {
+        let v = &entry.1;
         ys.push(Cirru::List(vec![
-          Cirru::Leaf(entries[idx].0.to_owned()),
+          Cirru::Leaf(format!(":{}", entry.0)),
           assemble_cirru_node(v),
         ]));
       }

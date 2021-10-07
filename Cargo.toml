@@ -1,6 +1,6 @@
 [package]
 name = "cirru_edn"
-version = "0.1.12"
+version = "0.2.0-a1"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
 edition = "2018"
 license = "MIT"

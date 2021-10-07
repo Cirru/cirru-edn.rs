@@ -64,10 +64,10 @@ impl fmt::Display for Edn {
         f.write_str(")")
       }
       Self::Record(name, entries) => {
-        f.write_str(&format!("(%{{}} {}", name))?;
+        f.write_str(&format!("(%{{}} {}", Edn::Keyword(name.to_owned())))?;
 
-        for idx in 0..entries.len() {
-          f.write_str(&format!("({} {})", entries[idx].0, entries[idx].1))?;
+        for entry in entries {
+          f.write_str(&format!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
         }
 
         f.write_str(")")
