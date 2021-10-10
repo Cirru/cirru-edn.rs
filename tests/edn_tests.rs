@@ -68,7 +68,10 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::Symbol(String::from("a")), true)?, "\ndo 'a\n");
   assert_eq!(cirru_edn::format(&Edn::Keyword(String::from("a")), true)?, "\ndo :a\n");
   assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
-  assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
+  assert_eq!(
+    cirru_edn::format(&Edn::Str(String::from("a b")), true)?,
+    "\ndo \"|a b\"\n"
+  );
 
   assert_eq!(
     cirru_edn::format(
