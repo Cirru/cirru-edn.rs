@@ -23,6 +23,7 @@ pub enum Edn {
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
   Record(String, Vec<(String, Edn)>),
+  Buffer(Vec<u8>),
 }
 
 impl fmt::Display for Edn {
@@ -70,6 +71,14 @@ impl fmt::Display for Edn {
           f.write_str(&format!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
         }
 
+        f.write_str(")")
+      }
+      Self::Buffer(buf) => {
+        f.write_str("(buf")?;
+        for b in buf {
+          f.write_str(" ")?;
+          f.write_str(format!("{:#04x}", b).strip_prefix("0x").unwrap())?;
+        }
         f.write_str(")")
       }
     }
@@ -144,6 +153,12 @@ impl Hash for Edn {
         name.hash(_state);
         entries.hash(_state);
       }
+      Self::Buffer(buf) => {
+        "buffer:".hash(_state);
+        for b in buf {
+          b.hash(_state);
+        }
+      }
     }
   }
 }
@@ -199,6 +214,10 @@ impl Ord for Edn {
       (Self::List(_), _) => Less,
       (_, Self::List(_)) => Greater,
 
+      (Self::Buffer(a), Self::Buffer(b)) => a.cmp(b),
+      (Self::Buffer(_), _) => Less,
+      (_, Self::Buffer(_)) => Greater,
+
       (Self::Set(a), Self::Set(b)) => match a.len().cmp(&b.len()) {
         Equal => unreachable!("TODO sets are not cmp ed"), // TODO
         a => a,
@@ -243,6 +262,7 @@ impl PartialEq for Edn {
       (Self::Quote(a), Self::Quote(b)) => a == b,
       (Self::Tuple(tag1, v1), Self::Tuple(tag2, v2)) => tag1 == tag2 && v1 == v2,
       (Self::List(a), Self::List(b)) => a == b,
+      (Self::Buffer(a), Self::Buffer(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
       (Self::Record(name1, entries1), Self::Record(name2, entries2)) => name1 == name2 && entries1 == entries2,

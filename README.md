@@ -108,6 +108,12 @@ a record, notice that now it's all using keywords:
   :c $ [] 1 2 3
 ```
 
+extra format for holding buffer, which is internally `Vec<u8>`:
+
+```cirru
+buf 00 01 f1 11
+```
+
 ### License
 
 MIT
