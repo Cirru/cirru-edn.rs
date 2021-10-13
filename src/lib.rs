@@ -153,6 +153,33 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 Err(String::from("insufficient items for edn record"))
               }
             }
+            "buf" => {
+              let mut ys: Vec<u8> = vec![];
+              for (idx, x) in xs.iter().enumerate() {
+                if idx > 0 {
+                  match x {
+                    Cirru::Leaf(y) => {
+                      if y.len() == 2 {
+                        match hex::decode(y) {
+                          Ok(b) => {
+                            if b.len() == 1 {
+                              ys.push(b[0])
+                            } else {
+                              return Err(format!("hex for buffer might be too large, got: {:?}", b));
+                            }
+                          }
+                          Err(e) => return Err(format!("expected length 2 hex string in buffer, got: {} {}", y, e)),
+                        }
+                      } else {
+                        return Err(format!("expected length 2 hex string in buffer, got: {}", y));
+                      }
+                    }
+                    _ => return Err(format!("expected hex string in buffer, got: {}", x)),
+                  }
+                }
+              }
+              Ok(Edn::Buffer(ys))
+            }
             a => Err(format!("invalid operator for edn: {}", a)),
           },
           Cirru::List(a) => Err(format!("invalid nodes for edn: {:?}", a)),
@@ -228,6 +255,15 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("::"))];
       ys.push(assemble_cirru_node(&*tag.to_owned()));
       ys.push(assemble_cirru_node(&*v.to_owned()));
+      Cirru::List(ys)
+    }
+    Edn::Buffer(buf) => {
+      let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("buf"))];
+      for b in buf {
+        ys.push(Cirru::Leaf(
+          format!("{:#04x}", b).strip_prefix("0x").unwrap().to_owned(),
+        ));
+      }
       Cirru::List(ys)
     }
   }

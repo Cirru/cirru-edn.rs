@@ -240,3 +240,30 @@ fn test_reader() -> Result<(), String> {
   assert_eq!(Edn::Map(dict).map_get("k2")?, Edn::Nil);
   Ok(())
 }
+
+#[test]
+fn test_buffer() -> Result<(), String> {
+  assert_eq!(Edn::Buffer(vec![]), cirru_edn::parse("buf").unwrap());
+  assert_eq!(Edn::Buffer(vec![1]), cirru_edn::parse("buf 01").unwrap());
+  assert_eq!(Edn::Buffer(vec![255]), cirru_edn::parse("buf ff").unwrap());
+  assert_eq!(Edn::Buffer(vec![10]), cirru_edn::parse("buf 0a").unwrap());
+
+  assert_eq!(
+    cirru_edn::format(&Edn::Buffer(vec![]), true).unwrap().trim(),
+    String::from("buf")
+  );
+  assert_eq!(
+    cirru_edn::format(&Edn::Buffer(vec![1]), true).unwrap().trim(),
+    String::from("buf 01")
+  );
+  assert_eq!(
+    cirru_edn::format(&Edn::Buffer(vec![255]), true).unwrap().trim(),
+    String::from("buf ff")
+  );
+  assert_eq!(
+    cirru_edn::format(&Edn::Buffer(vec![10]), true).unwrap().trim(),
+    String::from("buf 0a")
+  );
+
+  Ok(())
+}

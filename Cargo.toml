@@ -1,6 +1,6 @@
 [package]
 name = "cirru_edn"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,3 +14,4 @@ readme = "README.md"
 
 [dependencies]
 cirru_parser = "0.1.8"
+hex = "0.3.0"
