@@ -260,9 +260,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Buffer(buf) => {
       let mut ys: Vec<Cirru> = vec![Cirru::Leaf(String::from("buf"))];
       for b in buf {
-        ys.push(Cirru::Leaf(
-          format!("{:#04x}", b).strip_prefix("0x").unwrap().to_owned(),
-        ));
+        ys.push(Cirru::Leaf(hex::encode(vec![b.to_owned()])));
       }
       Cirru::List(ys)
     }

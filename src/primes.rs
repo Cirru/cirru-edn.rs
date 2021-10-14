@@ -77,7 +77,7 @@ impl fmt::Display for Edn {
         f.write_str("(buf")?;
         for b in buf {
           f.write_str(" ")?;
-          f.write_str(format!("{:#04x}", b).strip_prefix("0x").unwrap())?;
+          f.write_str(&hex::encode(vec![b.to_owned()]))?;
         }
         f.write_str(")")
       }
