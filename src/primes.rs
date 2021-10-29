@@ -273,6 +273,18 @@ impl PartialEq for Edn {
 
 /// Support reading from EDN
 impl Edn {
+  /// create new string
+  pub fn str<T: Into<String>>(s: T) -> Self {
+    Edn::Str(s.into())
+  }
+  /// create new keyword
+  pub fn kwd<T: Into<String>>(s: T) -> Self {
+    Edn::Keyword(s.into())
+  }
+  /// create new symbol
+  pub fn sym<T: Into<String>>(s: T) -> Self {
+    Edn::Symbol(s.into())
+  }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok(s.to_owned()),
