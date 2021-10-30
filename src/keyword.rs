@@ -51,6 +51,11 @@ impl EdnKwd {
   pub fn from(s: &str) -> Self {
     EdnKwd { id: load_order_key(s) }
   }
+
+  /// return an internal index number
+  pub fn to_n(&self) -> usize {
+    self.id
+  }
 }
 
 impl Ord for EdnKwd {
