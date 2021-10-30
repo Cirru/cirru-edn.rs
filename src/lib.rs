@@ -1,6 +1,8 @@
+mod keyword;
 mod primes;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
+pub use keyword::EdnKwd;
 pub use primes::Edn;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -31,7 +33,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
         '\'' => Ok(Edn::Symbol(s1[1..].to_owned())),
-        ':' => Ok(Edn::Keyword(s1[1..].to_owned())),
+        ':' => Ok(Edn::kwd(&s1[1..].to_owned())),
         '"' | '|' => Ok(Edn::Str(s1[1..].to_owned())),
         _ => {
           if let Ok(f) = s1.trim().parse::<f64>() {
