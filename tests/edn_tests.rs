@@ -1,4 +1,4 @@
-use cirru_edn::Edn;
+use cirru_edn::{Edn, EdnKwd};
 use cirru_parser::Cirru;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -139,12 +139,12 @@ fn demo_parsing() -> Result<(), String> {
   assert_eq!(
     cirru_edn::parse(RECORD_DEMO),
     Ok(Edn::Record(
-      String::from("Demo"),
+      EdnKwd::from("Demo"),
       vec![
-        (String::from("a"), Edn::Number(1.0),),
-        (String::from("b"), Edn::Number(2.0)),
+        (EdnKwd::from("a"), Edn::Number(1.0),),
+        (EdnKwd::from("b"), Edn::Number(2.0)),
         (
-          String::from("c"),
+          EdnKwd::from("c"),
           Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
         )
       ],
@@ -159,12 +159,12 @@ fn demo_parsing() -> Result<(), String> {
   assert_eq!(
     cirru_edn::format(
       &Edn::Record(
-        String::from("Demo"),
+        EdnKwd::from("Demo"),
         vec![
-          (String::from("a"), Edn::Number(1.0),),
-          (String::from("b"), Edn::Number(2.0)),
+          (EdnKwd::from("a"), Edn::Number(1.0),),
+          (EdnKwd::from("b"), Edn::Number(2.0)),
           (
-            String::from("c"),
+            EdnKwd::from("c"),
             Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
           )
         ],

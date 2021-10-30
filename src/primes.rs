@@ -24,7 +24,7 @@ pub enum Edn {
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
-  Record(String, Vec<(String, Edn)>),
+  Record(EdnKwd, Vec<(EdnKwd, Edn)>),
   Buffer(Vec<u8>),
 }
 
@@ -67,10 +67,10 @@ impl fmt::Display for Edn {
         f.write_str(")")
       }
       Self::Record(name, entries) => {
-        f.write_str(&format!("(%{{}} {}", Edn::kwd(name)))?;
+        f.write_str(&format!("(%{{}} {}", name))?;
 
         for entry in entries {
-          f.write_str(&format!("({} {})", Edn::kwd(&entry.0), entry.1))?;
+          f.write_str(&format!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
         }
 
         f.write_str(")")
