@@ -7,6 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use crate::keyword::EdnKwd;
+
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
 #[derive(fmt::Debug, Clone)]
@@ -15,7 +17,7 @@ pub enum Edn {
   Bool(bool),
   Number(f64),
   Symbol(String),
-  Keyword(String),
+  Keyword(EdnKwd),
   Str(String), // name collision
   Quote(Cirru),
   Tuple(Box<(Edn, Edn)>),
@@ -65,10 +67,10 @@ impl fmt::Display for Edn {
         f.write_str(")")
       }
       Self::Record(name, entries) => {
-        f.write_str(&format!("(%{{}} {}", Edn::Keyword(name.to_owned())))?;
+        f.write_str(&format!("(%{{}} {}", Edn::kwd(name)))?;
 
         for entry in entries {
-          f.write_str(&format!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
+          f.write_str(&format!("({} {})", Edn::kwd(&entry.0), entry.1))?;
         }
 
         f.write_str(")")
@@ -278,8 +280,8 @@ impl Edn {
     Edn::Str(s.into())
   }
   /// create new keyword
-  pub fn kwd<T: Into<String>>(s: T) -> Self {
-    Edn::Keyword(s.into())
+  pub fn kwd(s: &str) -> Self {
+    Edn::Keyword(EdnKwd::from(s))
   }
   /// create new symbol
   pub fn sym<T: Into<String>>(s: T) -> Self {
@@ -303,7 +305,7 @@ impl Edn {
   }
   pub fn read_keyword_string(&self) -> Result<String, String> {
     match self {
-      Edn::Keyword(s) => Ok(s.to_owned()),
+      Edn::Keyword(s) => Ok(s.to_string()),
       a => Err(format!("failed to convert to keyword: {}", a)),
     }
   }
@@ -398,8 +400,8 @@ impl Edn {
     let key: String = k.to_owned();
     match self {
       Edn::Map(xs) => {
-        if xs.contains_key(&Edn::Keyword(key.to_owned())) {
-          Ok(xs[&Edn::Keyword(key)].to_owned())
+        if xs.contains_key(&Edn::kwd(&key)) {
+          Ok(xs[&Edn::kwd(&key)].to_owned())
         } else if xs.contains_key(&Edn::Str(key.to_owned())) {
           Ok(xs[&Edn::Str(key)].to_owned())
         } else {
