@@ -9,23 +9,17 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Bool(true)), cirru_edn::parse("do true"));
   assert_eq!(Ok(Edn::Bool(false)), cirru_edn::parse("do false"));
 
-  assert_eq!(Ok(Edn::Symbol(String::from("a"))), cirru_edn::parse("do 'a"));
-  assert_eq!(Ok(Edn::Keyword(String::from("k"))), cirru_edn::parse("do :k"));
-  assert_eq!(Ok(Edn::Str(String::from("s"))), cirru_edn::parse("do |s"));
+  assert_eq!(Ok(Edn::sym("a")), cirru_edn::parse("do 'a"));
+  assert_eq!(Ok(Edn::kwd("k")), cirru_edn::parse("do :k"));
+  assert_eq!(Ok(Edn::str("s")), cirru_edn::parse("do |s"));
 
-  assert_eq!(
-    Ok(Edn::Str(String::from("a b\n c"))),
-    cirru_edn::parse(r#"do "|a b\n c""#)
-  );
+  assert_eq!(Ok(Edn::str("a b\n c")), cirru_edn::parse(r#"do "|a b\n c""#));
 
   assert_eq!(Ok(Edn::Number(2.0)), cirru_edn::parse("do 2"));
   assert_eq!(Ok(Edn::Number(-2.2)), cirru_edn::parse("do -2.2"));
 
   assert_eq!(
-    Ok(Edn::Tuple(
-      Box::new(Edn::Keyword(String::from("a"))),
-      Box::new(Edn::Number(1.0))
-    )),
+    Ok(Edn::tuple(Edn::kwd("a"), Edn::Number(1.0))),
     cirru_edn::parse(":: :a 1")
   );
 }
@@ -49,9 +43,9 @@ fn list_parsing() {
 #[test]
 fn set_parsing() {
   let mut v: HashSet<Edn> = HashSet::new();
-  v.insert(Edn::Keyword(String::from("a")));
-  v.insert(Edn::Keyword(String::from("b")));
-  v.insert(Edn::Keyword(String::from("c")));
+  v.insert(Edn::kwd("a"));
+  v.insert(Edn::kwd("b"));
+  v.insert(Edn::kwd("c"));
   assert_eq!(Ok(Edn::Set(v)), cirru_edn::parse("#{} :a :b :c"));
 }
 
@@ -65,19 +59,13 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::Number(1.1), true)?, "\ndo 1.1\n");
   assert_eq!(cirru_edn::format(&Edn::Number(-1.1), true)?, "\ndo -1.1\n");
 
-  assert_eq!(cirru_edn::format(&Edn::Symbol(String::from("a")), true)?, "\ndo 'a\n");
-  assert_eq!(cirru_edn::format(&Edn::Keyword(String::from("a")), true)?, "\ndo :a\n");
-  assert_eq!(cirru_edn::format(&Edn::Str(String::from("a")), true)?, "\ndo |a\n");
-  assert_eq!(
-    cirru_edn::format(&Edn::Str(String::from("a b")), true)?,
-    "\ndo \"|a b\"\n"
-  );
+  assert_eq!(cirru_edn::format(&Edn::sym("a"), true)?, "\ndo 'a\n");
+  assert_eq!(cirru_edn::format(&Edn::kwd("a"), true)?, "\ndo :a\n");
+  assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
+  assert_eq!(cirru_edn::format(&Edn::str("a b"), true)?, "\ndo \"|a b\"\n");
 
   assert_eq!(
-    cirru_edn::format(
-      &Edn::Tuple(Box::new(Edn::Keyword(String::from("a"))), Box::new(Edn::Number(1.0))),
-      true
-    )?,
+    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), Edn::Number(1.0)), true)?,
     "\n:: :a 1\n"
   );
 
@@ -203,20 +191,17 @@ fn debug_format() {
   assert_eq!(format!("{}", Edn::Map(empty)), "({})");
 
   let mut singleton: HashMap<Edn, Edn> = HashMap::new();
-  singleton.insert(Edn::Keyword(String::from("a")), Edn::Str(String::from("b")));
+  singleton.insert(Edn::kwd("a"), Edn::str("b"));
   assert_eq!(format!("{}", Edn::Map(singleton)), "({} (:a |b))");
 
   let mut singleton_set: HashSet<Edn> = HashSet::new();
-  singleton_set.insert(Edn::Symbol(String::from("a")));
+  singleton_set.insert(Edn::sym("a"));
   assert_eq!(format!("{}", Edn::Set(singleton_set)), "(#{} 'a)");
 
   let singleton_vec = vec![Edn::Bool(false)];
   assert_eq!(format!("{}", Edn::List(singleton_vec)), "([] false)");
 
-  let code = Edn::List(vec![Edn::Quote(Cirru::List(vec![
-    Cirru::Leaf(String::from("a")),
-    Cirru::Leaf(String::from("b")),
-  ]))]);
+  let code = Edn::List(vec![Edn::Quote(Cirru::List(vec![Cirru::leaf("a"), Cirru::leaf("b")]))]);
 
   assert_eq!(format!("{}", code), "([] (quote (a b)))");
 }
@@ -224,18 +209,15 @@ fn debug_format() {
 #[test]
 fn test_reader() -> Result<(), String> {
   assert!(Edn::Bool(true).read_bool()?);
-  assert_eq!(Edn::Str(String::from("a")).read_string()?, String::from("a"));
-  assert_eq!(Edn::Symbol(String::from("a")).read_symbol_string()?, String::from("a"));
-  assert_eq!(
-    Edn::Keyword(String::from("a")).read_keyword_string()?,
-    String::from("a")
-  );
+  assert_eq!(Edn::str("a").read_string()?, String::from("a"));
+  assert_eq!(Edn::sym("a").read_symbol_string()?, String::from("a"));
+  assert_eq!(Edn::kwd("a").read_keyword_string()?, String::from("a"));
   assert!((Edn::Number(1.1).read_number()? - 1.1).abs() < f64::EPSILON);
   assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(0)?, Edn::Number(1.0));
   assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(1)?, Edn::Nil);
 
   let mut dict = HashMap::new();
-  dict.insert(Edn::Keyword(String::from("k")), Edn::Number(1.1));
+  dict.insert(Edn::kwd("k"), Edn::Number(1.1));
   assert!((Edn::Map(dict.to_owned()).map_get("k")?.read_number()? - 1.1).abs() < f64::EPSILON);
   assert_eq!(Edn::Map(dict).map_get("k2")?, Edn::Nil);
   Ok(())

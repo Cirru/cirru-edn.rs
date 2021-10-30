@@ -18,7 +18,7 @@ pub enum Edn {
   Keyword(String),
   Str(String), // name collision
   Quote(Cirru),
-  Tuple(Box<Edn>, Box<Edn>),
+  Tuple(Box<(Edn, Edn)>),
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
@@ -42,7 +42,7 @@ impl fmt::Display for Edn {
         }
       }
       Self::Quote(v) => f.write_str(&format!("(quote {})", v)),
-      Self::Tuple(tag, v) => f.write_str(&format!("(:: {} {})", (*tag).to_string(), (*v).to_string())),
+      Self::Tuple(pair) => f.write_str(&format!("(:: {} {})", pair.0, pair.1)),
       Self::List(xs) => {
         f.write_str("([]")?;
         for x in xs {
@@ -125,10 +125,10 @@ impl Hash for Edn {
         "quote:".hash(_state);
         v.hash(_state);
       }
-      Self::Tuple(tag, v) => {
+      Self::Tuple(pair) => {
         "tuple".hash(_state);
-        (*tag).hash(_state);
-        (*v).hash(_state);
+        pair.0.hash(_state);
+        pair.1.hash(_state);
       }
       Self::List(v) => {
         "list:".hash(_state);
@@ -202,10 +202,10 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
-      (Self::Tuple(tag1, v1), Self::Tuple(tag2, v2)) => match tag1.cmp(tag2) {
+      (Self::Tuple(a), Self::Tuple(b)) => match a.0.cmp(&b.0) {
         Less => Less,
         Greater => Greater,
-        Equal => (*v1).cmp(&*v2),
+        Equal => a.1.cmp(&b.1),
       },
       (Self::Tuple(..), _) => Less,
       (_, Self::Tuple(..)) => Greater,
@@ -260,7 +260,7 @@ impl PartialEq for Edn {
       (Self::Keyword(a), Self::Keyword(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
       (Self::Quote(a), Self::Quote(b)) => a == b,
-      (Self::Tuple(tag1, v1), Self::Tuple(tag2, v2)) => tag1 == tag2 && v1 == v2,
+      (Self::Tuple(a), Self::Tuple(b)) => a.0 == b.0 && a.1 == b.1,
       (Self::List(a), Self::List(b)) => a == b,
       (Self::Buffer(a), Self::Buffer(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
@@ -273,6 +273,22 @@ impl PartialEq for Edn {
 
 /// Support reading from EDN
 impl Edn {
+  /// create new string
+  pub fn str<T: Into<String>>(s: T) -> Self {
+    Edn::Str(s.into())
+  }
+  /// create new keyword
+  pub fn kwd<T: Into<String>>(s: T) -> Self {
+    Edn::Keyword(s.into())
+  }
+  /// create new symbol
+  pub fn sym<T: Into<String>>(s: T) -> Self {
+    Edn::Symbol(s.into())
+  }
+  /// create new tuple
+  pub fn tuple(a: Self, b: Self) -> Self {
+    Edn::Tuple(Box::new((a, b)))
+  }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok(s.to_owned()),
