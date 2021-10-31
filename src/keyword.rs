@@ -18,8 +18,8 @@ use std::sync::atomic::AtomicUsize;
 
 lazy_static! {
   /// use 2 maps for fast lookups
-  static ref KEYWORDS_DICT: RwLock<HashMap<String, usize>> = RwLock::new(HashMap::new());
-  static ref KEYWORDS_REVERSE_DICT: RwLock<HashMap<usize, String>> = RwLock::new(HashMap::new());
+  static ref KEYWORDS_DICT: RwLock<HashMap<Box<str>, usize>> = RwLock::new(HashMap::new());
+  static ref KEYWORDS_REVERSE_DICT: RwLock<HashMap<usize, Box<str>>> = RwLock::new(HashMap::new());
 }
 
 static KEYWORD_ID: AtomicUsize = AtomicUsize::new(0);
@@ -55,6 +55,11 @@ impl EdnKwd {
   /// return an internal index number
   pub fn to_n(&self) -> usize {
     self.id
+  }
+
+  /// get Box<str> from inside
+  pub fn to_str(&self) -> Box<str> {
+    lookup_order_kwd_str(&self.id).to_owned()
   }
 }
 
@@ -96,13 +101,13 @@ fn load_order_key(s: &str) -> usize {
     let mut reverse_dict = KEYWORDS_REVERSE_DICT.write().unwrap();
     ret = KEYWORD_ID.fetch_add(1, atomic::Ordering::SeqCst);
 
-    (*dict).insert(s.to_owned(), ret);
-    (*reverse_dict).insert(ret, s.to_owned());
+    (*dict).insert(s.to_string().into_boxed_str(), ret);
+    (*reverse_dict).insert(ret, s.to_string().into_boxed_str());
   }
   ret
 }
 
-fn lookup_order_kwd_str(i: &usize) -> String {
+fn lookup_order_kwd_str(i: &usize) -> Box<str> {
   let reverse_dict = KEYWORDS_REVERSE_DICT.read().unwrap();
   reverse_dict[i].to_owned()
 }

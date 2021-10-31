@@ -26,15 +26,15 @@ pub fn parse(s: &str) -> Result<Edn, String> {
 
 fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
   match node {
-    Cirru::Leaf(s) => match s.as_str() {
+    Cirru::Leaf(s) => match &**s {
       "nil" => Ok(Edn::Nil),
       "true" => Ok(Edn::Bool(true)),
       "false" => Ok(Edn::Bool(false)),
       "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
-        '\'' => Ok(Edn::Symbol(s1[1..].to_owned())),
+        '\'' => Ok(Edn::Symbol(s1[1..].to_owned().into_boxed_str())),
         ':' => Ok(Edn::kwd(&s1[1..].to_owned())),
-        '"' | '|' => Ok(Edn::Str(s1[1..].to_owned())),
+        '"' | '|' => Ok(Edn::Str(s1[1..].to_owned().into_boxed_str())),
         _ => {
           if let Ok(f) = s1.trim().parse::<f64>() {
             Ok(Edn::Number(f))
@@ -49,7 +49,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
         Err(String::from("empty expr is invalid for edn"))
       } else {
         match &xs[0] {
-          Cirru::Leaf(s) => match s.as_str() {
+          Cirru::Leaf(s) => match &**s {
             "quote" => {
               if xs.len() == 2 {
                 Ok(Edn::Quote(xs[1].to_owned()))
@@ -161,7 +161,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   match x {
                     Cirru::Leaf(y) => {
                       if y.len() == 2 {
-                        match hex::decode(y) {
+                        match hex::decode(&(**y)) {
                           Ok(b) => {
                             if b.len() == 1 {
                               ys.push(b[0])
@@ -193,11 +193,11 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
 fn assemble_cirru_node(data: &Edn) -> Cirru {
   match data {
     Edn::Nil => Cirru::leaf("nil"),
-    Edn::Bool(v) => Cirru::Leaf(v.to_string()),
-    Edn::Number(n) => Cirru::Leaf(n.to_string()),
-    Edn::Symbol(s) => Cirru::Leaf(format!("'{}", s)),
-    Edn::Keyword(s) => Cirru::Leaf(format!(":{}", s)),
-    Edn::Str(s) => Cirru::Leaf(format!("|{}", s)),
+    Edn::Bool(v) => Cirru::Leaf(v.to_string().into_boxed_str()),
+    Edn::Number(n) => Cirru::Leaf(n.to_string().into_boxed_str()),
+    Edn::Symbol(s) => Cirru::Leaf(format!("'{}", s).into_boxed_str()),
+    Edn::Keyword(s) => Cirru::Leaf(format!(":{}", s).into_boxed_str()),
+    Edn::Str(s) => Cirru::Leaf(format!("|{}", s).into_boxed_str()),
     Edn::Quote(v) => Cirru::List(vec![Cirru::leaf("quote"), (*v).to_owned()]),
     Edn::List(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
@@ -226,11 +226,11 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Record(name, entries) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(entries.len() + 2);
       ys.push(Cirru::leaf("%{}"));
-      ys.push(Cirru::Leaf(format!(":{}", name)));
+      ys.push(Cirru::Leaf(format!(":{}", name).into_boxed_str()));
       for entry in entries {
         let v = &entry.1;
         ys.push(Cirru::List(vec![
-          Cirru::Leaf(format!(":{}", entry.0)),
+          Cirru::Leaf(format!(":{}", entry.0).into_boxed_str()),
           assemble_cirru_node(v),
         ]));
       }
@@ -249,7 +249,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       let mut ys: Vec<Cirru> = Vec::with_capacity(buf.len() + 1);
       ys.push(Cirru::leaf("buf"));
       for b in buf {
-        ys.push(Cirru::Leaf(hex::encode(vec![b.to_owned()])));
+        ys.push(Cirru::Leaf(hex::encode(vec![b.to_owned()]).into_boxed_str()));
       }
       Cirru::List(ys)
     }

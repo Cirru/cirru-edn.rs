@@ -16,9 +16,9 @@ pub enum Edn {
   Nil,
   Bool(bool),
   Number(f64),
-  Symbol(String),
+  Symbol(Box<str>),
   Keyword(EdnKwd),
-  Str(String), // name collision
+  Str(Box<str>), // name collision
   Quote(Cirru),
   Tuple(Box<(Edn, Edn)>),
   List(Vec<Edn>),
@@ -277,7 +277,7 @@ impl PartialEq for Edn {
 impl Edn {
   /// create new string
   pub fn str<T: Into<String>>(s: T) -> Self {
-    Edn::Str(s.into())
+    Edn::Str(s.into().into_boxed_str())
   }
   /// create new keyword
   pub fn kwd(s: &str) -> Self {
@@ -285,7 +285,7 @@ impl Edn {
   }
   /// create new symbol
   pub fn sym<T: Into<String>>(s: T) -> Self {
-    Edn::Symbol(s.into())
+    Edn::Symbol(s.into().into_boxed_str())
   }
   /// create new tuple
   pub fn tuple(a: Self, b: Self) -> Self {
@@ -293,19 +293,37 @@ impl Edn {
   }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
-      Edn::Str(s) => Ok(s.to_owned()),
+      Edn::Str(s) => Ok((&**s).to_owned()),
       a => Err(format!("failed to convert to string: {}", a)),
     }
   }
   pub fn read_symbol_string(&self) -> Result<String, String> {
     match self {
-      Edn::Symbol(s) => Ok(s.to_owned()),
+      Edn::Symbol(s) => Ok((&**s).to_owned()),
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
   pub fn read_keyword_string(&self) -> Result<String, String> {
     match self {
       Edn::Keyword(s) => Ok(s.to_string()),
+      a => Err(format!("failed to convert to keyword: {}", a)),
+    }
+  }
+  pub fn read_str(&self) -> Result<Box<str>, String> {
+    match self {
+      Edn::Str(s) => Ok(s.to_owned()),
+      a => Err(format!("failed to convert to string: {}", a)),
+    }
+  }
+  pub fn read_symbol_str(&self) -> Result<Box<str>, String> {
+    match self {
+      Edn::Symbol(s) => Ok(s.to_owned()),
+      a => Err(format!("failed to convert to symbol: {}", a)),
+    }
+  }
+  pub fn read_kwd_str(&self) -> Result<Box<str>, String> {
+    match self {
+      Edn::Keyword(s) => Ok(s.to_str()),
       a => Err(format!("failed to convert to keyword: {}", a)),
     }
   }
@@ -402,8 +420,8 @@ impl Edn {
       Edn::Map(xs) => {
         if xs.contains_key(&Edn::kwd(&key)) {
           Ok(xs[&Edn::kwd(&key)].to_owned())
-        } else if xs.contains_key(&Edn::Str(key.to_owned())) {
-          Ok(xs[&Edn::Str(key)].to_owned())
+        } else if xs.contains_key(&Edn::Str(key.to_owned().into_boxed_str())) {
+          Ok(xs[&Edn::Str(key.into_boxed_str())].to_owned())
         } else {
           Ok(Edn::Nil)
         }
