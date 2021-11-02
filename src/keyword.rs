@@ -5,35 +5,21 @@
 //!
 //! TODO: need more optimizations
 
-use lazy_static::lazy_static;
 use std::cmp::Eq;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::RwLock;
-
-use std::sync::atomic;
-use std::sync::atomic::AtomicUsize;
-
-lazy_static! {
-  /// use 2 maps for fast lookups
-  static ref KEYWORDS_DICT: RwLock<HashMap<Box<str>, usize>> = RwLock::new(HashMap::new());
-  static ref KEYWORDS_REVERSE_DICT: RwLock<HashMap<usize, Box<str>>> = RwLock::new(HashMap::new());
-}
-
-static KEYWORD_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// keywords across whole program with strings reused
 #[derive(fmt::Debug, Clone)]
-pub struct EdnKwd {
+pub struct EdnKwd(
   /// which means there will be a limit of the count of all keywords
-  id: usize,
-}
+  Box<str>,
+);
 
 impl fmt::Display for EdnKwd {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str(&lookup_order_kwd_str(&self.id))
+    f.write_str(&self.0)
   }
 }
 
@@ -43,29 +29,24 @@ impl Hash for EdnKwd {
     H: Hasher,
   {
     "EdnKwd:".hash(_state);
-    self.id.hash(_state);
+    self.0.hash(_state);
   }
 }
 
 impl EdnKwd {
   pub fn from(s: &str) -> Self {
-    EdnKwd { id: load_order_key(s) }
-  }
-
-  /// return an internal index number
-  pub fn to_n(&self) -> usize {
-    self.id
+    EdnKwd(s.to_owned().into_boxed_str())
   }
 
   /// get Box<str> from inside
   pub fn to_str(&self) -> Box<str> {
-    lookup_order_kwd_str(&self.id).to_owned()
+    self.0.to_owned()
   }
 }
 
 impl Ord for EdnKwd {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.id.cmp(&other.id)
+    self.0.cmp(&other.0)
   }
 }
 
@@ -79,35 +60,6 @@ impl Eq for EdnKwd {}
 
 impl PartialEq for EdnKwd {
   fn eq(&self, other: &Self) -> bool {
-    self.id == other.id
+    self.0 == other.0
   }
-}
-
-/// lookup from maps, record new keywords
-fn load_order_key(s: &str) -> usize {
-  let mut ret: usize = 0;
-  let existed = {
-    let read_dict = KEYWORDS_DICT.read().unwrap();
-    if read_dict.contains_key(s) {
-      ret = read_dict[s].to_owned();
-      true
-    } else {
-      false
-    }
-  };
-  // boring logic to make sure reading lock released
-  if !existed {
-    let mut dict = KEYWORDS_DICT.write().unwrap();
-    let mut reverse_dict = KEYWORDS_REVERSE_DICT.write().unwrap();
-    ret = KEYWORD_ID.fetch_add(1, atomic::Ordering::SeqCst);
-
-    (*dict).insert(s.to_string().into_boxed_str(), ret);
-    (*reverse_dict).insert(ret, s.to_string().into_boxed_str());
-  }
-  ret
-}
-
-fn lookup_order_kwd_str(i: &usize) -> Box<str> {
-  let reverse_dict = KEYWORDS_REVERSE_DICT.read().unwrap();
-  reverse_dict[i].to_owned()
 }
