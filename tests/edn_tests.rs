@@ -22,6 +22,8 @@ fn edn_parsing() {
     Ok(Edn::tuple(Edn::kwd("a"), Edn::Number(1.0))),
     cirru_edn::parse(":: :a 1")
   );
+
+  assert_eq!(Ok(Edn::str("中文")), cirru_edn::parse("do |中文"));
 }
 
 #[test]
