@@ -32,9 +32,9 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       "false" => Ok(Edn::Bool(false)),
       "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
-        '\'' => Ok(Edn::Symbol(s1[1..].to_owned().into_boxed_str())),
+        '\'' => Ok(Edn::Symbol(s1[1..].into())),
         ':' => Ok(Edn::kwd(&s1[1..].to_owned())),
-        '"' | '|' => Ok(Edn::Str(s1[1..].to_owned().into_boxed_str())),
+        '"' | '|' => Ok(Edn::Str(s1[1..].into())),
         _ => {
           if let Ok(f) = s1.trim().parse::<f64>() {
             Ok(Edn::Number(f))
@@ -72,7 +72,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               }
             }
             "[]" => {
-              let mut ys: Vec<Edn> = vec![];
+              let mut ys: Vec<Edn> = Vec::with_capacity(xs.len() - 1);
               for (idx, x) in xs.iter().enumerate() {
                 if idx > 0 {
                   match extract_cirru_edn(x) {
@@ -121,11 +121,11 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             }
             "%{}" => {
               if xs.len() >= 3 {
-                let name = match xs[1].to_owned() {
-                  Cirru::Leaf(s) => EdnKwd::from(s.strip_prefix(':').unwrap_or(&s)),
+                let name = match &xs[1] {
+                  Cirru::Leaf(s) => EdnKwd::from(s.strip_prefix(':').unwrap_or(s)),
                   Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
                 };
-                let mut entries: Vec<(EdnKwd, Edn)> = vec![];
+                let mut entries: Vec<(EdnKwd, Edn)> = Vec::with_capacity(xs.len() - 1);
 
                 for (idx, x) in xs.iter().enumerate() {
                   if idx > 1 {
@@ -155,7 +155,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               }
             }
             "buf" => {
-              let mut ys: Vec<u8> = vec![];
+              let mut ys: Vec<u8> = Vec::with_capacity(xs.len() - 1);
               for (idx, x) in xs.iter().enumerate() {
                 if idx > 0 {
                   match x {

@@ -35,7 +35,7 @@ impl Hash for EdnKwd {
 
 impl EdnKwd {
   pub fn from(s: &str) -> Self {
-    EdnKwd(s.to_owned().into_boxed_str())
+    EdnKwd(s.into())
   }
 
   /// get Box<str> from inside
