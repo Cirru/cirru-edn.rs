@@ -415,13 +415,12 @@ impl Edn {
 
   /// detects by keyword then string, return nil if not found
   pub fn map_get(&self, k: &str) -> Result<Edn, String> {
-    let key: String = k.to_owned();
     match self {
       Edn::Map(xs) => {
-        if xs.contains_key(&Edn::kwd(&key)) {
-          Ok(xs[&Edn::kwd(&key)].to_owned())
-        } else if xs.contains_key(&Edn::Str(key.to_owned().into_boxed_str())) {
-          Ok(xs[&Edn::Str(key.into_boxed_str())].to_owned())
+        if xs.contains_key(&Edn::kwd(k)) {
+          Ok(xs[&Edn::kwd(k)].to_owned())
+        } else if xs.contains_key(&Edn::Str(k.to_owned().into_boxed_str())) {
+          Ok(xs[&Edn::Str(k.into())].to_owned())
         } else {
           Ok(Edn::Nil)
         }
