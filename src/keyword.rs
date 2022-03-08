@@ -5,10 +5,12 @@
 //!
 //! TODO: need more optimizations
 
-use std::cmp::Eq;
-use std::cmp::Ordering;
-use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::{
+  cmp::Eq,
+  cmp::Ordering,
+  fmt,
+  hash::{Hash, Hasher},
+};
 
 /// keywords across whole program with strings reused
 #[derive(fmt::Debug, Clone)]

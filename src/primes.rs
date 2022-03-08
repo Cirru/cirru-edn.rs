@@ -1,11 +1,12 @@
+use std::{
+  cmp::{Eq, Ordering, Ordering::*},
+  collections::{HashMap, HashSet},
+  convert::TryInto,
+  fmt,
+  hash::{Hash, Hasher},
+};
+
 use cirru_parser::Cirru;
-use core::cmp::Ord;
-use std::cmp::Eq;
-use std::cmp::Ordering;
-use std::cmp::Ordering::*;
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::hash::{Hash, Hasher};
 
 use crate::keyword::EdnKwd;
 
@@ -229,7 +230,7 @@ impl Ord for Edn {
 
       (Self::Map(a), Self::Map(b)) => {
         match a.len().cmp(&b.len()) {
-          Equal => unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)), // TODO
+          Equal => unreachable!("TODO maps are not cmp ed {:?} {:?}", a, b), // TODO
           a => a,
         }
       }
@@ -426,6 +427,89 @@ impl Edn {
         }
       }
       a => Err(format!("target is not map: {}", a)),
+    }
+  }
+}
+
+impl TryInto<String> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<String, Self::Error> {
+    match self {
+      Edn::Str(s) => Ok((&*s).to_owned()),
+      a => Err(format!("failed to convert to string: {}", a)),
+    }
+  }
+}
+
+impl TryInto<Box<str>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<Box<str>, Self::Error> {
+    match self {
+      Edn::Str(s) => Ok((&*s).into()),
+      a => Err(format!("failed to convert to box str: {}", a)),
+    }
+  }
+}
+
+impl TryInto<bool> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<bool, Self::Error> {
+    match self {
+      Edn::Bool(s) => Ok(s),
+      a => Err(format!("failed to convert to bool: {}", a)),
+    }
+  }
+}
+
+impl TryInto<f64> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<f64, Self::Error> {
+    match self {
+      Edn::Number(s) => Ok(s),
+      a => Err(format!("failed to convert to number: {}", a)),
+    }
+  }
+}
+
+impl TryInto<Cirru> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<Cirru, Self::Error> {
+    match self {
+      Edn::Quote(s) => Ok(s),
+      a => Err(format!("failed to convert to cirru code: {}", a)),
+    }
+  }
+}
+
+impl TryInto<Vec<Edn>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<Vec<Edn>, Self::Error> {
+    match self {
+      Edn::List(s) => Ok(s),
+      Edn::Nil => Ok(vec![]),
+      a => Err(format!("failed to convert to vec: {}", a)),
+    }
+  }
+}
+
+impl TryInto<HashSet<Edn>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<HashSet<Edn>, Self::Error> {
+    match self {
+      Edn::Set(s) => Ok(s),
+      Edn::Nil => Ok(HashSet::new()),
+      a => Err(format!("failed to convert to vec: {}", a)),
+    }
+  }
+}
+
+impl TryInto<HashMap<Edn, Edn>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<HashMap<Edn, Edn>, Self::Error> {
+    match self {
+      Edn::Map(s) => Ok(s),
+      Edn::Nil => Ok(HashMap::new()),
+      a => Err(format!("failed to convert to vec: {}", a)),
     }
   }
 }

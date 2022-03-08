@@ -1,11 +1,13 @@
 mod keyword;
 mod primes;
 
-use cirru_parser::{Cirru, CirruWriterOptions};
-pub use keyword::EdnKwd;
-pub use primes::Edn;
 use std::collections::HashMap;
 use std::collections::HashSet;
+
+use cirru_parser::{Cirru, CirruWriterOptions};
+
+pub use keyword::EdnKwd;
+pub use primes::Edn;
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {
