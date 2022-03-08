@@ -90,7 +90,7 @@ impl fmt::Display for Edn {
 
 fn is_simple_token(tok: &str) -> bool {
   for s in tok.bytes() {
-    if !matches!(s as char, '0'..='9' | 'A'..='Z'| 'a'..='z'|  '-' | '?' | '.'| '$' | ',') {
+    if !matches!(s, b'0'..=b'9' | b'A'..=b'Z'| b'a'..=b'z'|  b'-' | b'?' | b'.'| b'$' | b',') {
       return false;
     }
   }
