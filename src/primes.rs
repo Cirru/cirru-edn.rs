@@ -33,45 +33,45 @@ impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::Nil => f.write_str("nil"),
-      Self::Bool(v) => f.write_str(&format!("{}", v)),
-      Self::Number(n) => f.write_str(&format!("{}", n)),
-      Self::Symbol(s) => f.write_str(&format!("'{}", s)),
-      Self::Keyword(s) => f.write_str(&format!(":{}", s)),
+      Self::Bool(v) => f.write_fmt(format_args!("{}", v)),
+      Self::Number(n) => f.write_fmt(format_args!("{}", n)),
+      Self::Symbol(s) => f.write_fmt(format_args!("'{}", s)),
+      Self::Keyword(s) => f.write_fmt(format_args!(":{}", s)),
       Self::Str(s) => {
         if is_simple_token(s) {
-          f.write_str(&format!("|{}", s))
+          f.write_fmt(format_args!("|{}", s))
         } else {
-          f.write_str(&format!("\"|{}\"", s))
+          f.write_fmt(format_args!("\"|{}\"", s))
         }
       }
-      Self::Quote(v) => f.write_str(&format!("(quote {})", v)),
-      Self::Tuple(pair) => f.write_str(&format!("(:: {} {})", pair.0, pair.1)),
+      Self::Quote(v) => f.write_fmt(format_args!("(quote {})", v)),
+      Self::Tuple(pair) => f.write_fmt(format_args!("(:: {} {})", pair.0, pair.1)),
       Self::List(xs) => {
         f.write_str("([]")?;
         for x in xs {
-          f.write_str(&format!(" {}", x))?;
+          f.write_fmt(format_args!(" {}", x))?;
         }
         f.write_str(")")
       }
       Self::Set(xs) => {
         f.write_str("(#{}")?;
         for x in xs {
-          f.write_str(&format!(" {}", x))?;
+          f.write_fmt(format_args!(" {}", x))?;
         }
         f.write_str(")")
       }
       Self::Map(xs) => {
         f.write_str("({}")?;
         for (k, v) in xs {
-          f.write_str(&format!(" ({} {})", k, v))?;
+          f.write_fmt(format_args!(" ({} {})", k, v))?;
         }
         f.write_str(")")
       }
       Self::Record(name, entries) => {
-        f.write_str(&format!("(%{{}} {}", name))?;
+        f.write_fmt(format_args!("(%{{}} {}", name))?;
 
         for entry in entries {
-          f.write_str(&format!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
+          f.write_fmt(format_args!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
         }
 
         f.write_str(")")
@@ -89,8 +89,8 @@ impl fmt::Display for Edn {
 }
 
 fn is_simple_token(tok: &str) -> bool {
-  for s in tok.chars() {
-    if !matches!(s, '0'..='9' | 'A'..='Z'| 'a'..='z'|  '-' | '?' | '.'| '$' | ',') {
+  for s in tok.bytes() {
+    if !matches!(s as char, '0'..='9' | 'A'..='Z'| 'a'..='z'|  '-' | '?' | '.'| '$' | ',') {
       return false;
     }
   }
@@ -205,11 +205,7 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
-      (Self::Tuple(a), Self::Tuple(b)) => match a.0.cmp(&b.0) {
-        Less => Less,
-        Greater => Greater,
-        Equal => a.1.cmp(&b.1),
-      },
+      (Self::Tuple(a), Self::Tuple(b)) => a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)),
       (Self::Tuple(..), _) => Less,
       (_, Self::Tuple(..)) => Greater,
 
@@ -237,10 +233,9 @@ impl Ord for Edn {
       (Self::Map(_), _) => Less,
       (_, Self::Map(_)) => Greater,
 
-      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => match name1.cmp(name2) {
-        Equal => entries1.cmp(entries2),
-        a => a,
-      },
+      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => {
+        name1.cmp(name2).then_with(|| entries1.cmp(entries2))
+      }
     }
   }
 }
@@ -436,6 +431,8 @@ impl TryInto<String> for Edn {
   fn try_into(self) -> Result<String, Self::Error> {
     match self {
       Edn::Str(s) => Ok((&*s).to_owned()),
+      Edn::Symbol(s) => Ok((&*s).to_owned()),
+      Edn::Keyword(s) => Ok((*s.to_str()).to_string()),
       a => Err(format!("failed to convert to string: {}", a)),
     }
   }

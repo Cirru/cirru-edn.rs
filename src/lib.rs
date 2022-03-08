@@ -11,18 +11,14 @@ pub use primes::Edn;
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {
-  match cirru_parser::parse(s) {
-    Ok(xs) => {
-      if xs.len() == 1 {
-        match &xs[0] {
-          Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {}", s)),
-          Cirru::List(_) => extract_cirru_edn(&xs[0]),
-        }
-      } else {
-        Err(format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs))
-      }
+  let xs = cirru_parser::parse(s)?;
+  if xs.len() == 1 {
+    match &xs[0] {
+      Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {}", s)),
+      Cirru::List(_) => extract_cirru_edn(&xs[0]),
     }
-    Err(e) => Err(e),
+  } else {
+    Err(format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs))
   }
 }
 
