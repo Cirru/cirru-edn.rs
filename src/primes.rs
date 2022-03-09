@@ -1,11 +1,12 @@
+use std::{
+  cmp::{Eq, Ordering, Ordering::*},
+  collections::{HashMap, HashSet},
+  convert::TryInto,
+  fmt,
+  hash::{Hash, Hasher},
+};
+
 use cirru_parser::Cirru;
-use core::cmp::Ord;
-use std::cmp::Eq;
-use std::cmp::Ordering;
-use std::cmp::Ordering::*;
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::hash::{Hash, Hasher};
 
 use crate::keyword::EdnKwd;
 
@@ -32,45 +33,45 @@ impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::Nil => f.write_str("nil"),
-      Self::Bool(v) => f.write_str(&format!("{}", v)),
-      Self::Number(n) => f.write_str(&format!("{}", n)),
-      Self::Symbol(s) => f.write_str(&format!("'{}", s)),
-      Self::Keyword(s) => f.write_str(&format!(":{}", s)),
+      Self::Bool(v) => f.write_fmt(format_args!("{}", v)),
+      Self::Number(n) => f.write_fmt(format_args!("{}", n)),
+      Self::Symbol(s) => f.write_fmt(format_args!("'{}", s)),
+      Self::Keyword(s) => f.write_fmt(format_args!(":{}", s)),
       Self::Str(s) => {
         if is_simple_token(s) {
-          f.write_str(&format!("|{}", s))
+          f.write_fmt(format_args!("|{}", s))
         } else {
-          f.write_str(&format!("\"|{}\"", s))
+          f.write_fmt(format_args!("\"|{}\"", s))
         }
       }
-      Self::Quote(v) => f.write_str(&format!("(quote {})", v)),
-      Self::Tuple(pair) => f.write_str(&format!("(:: {} {})", pair.0, pair.1)),
+      Self::Quote(v) => f.write_fmt(format_args!("(quote {})", v)),
+      Self::Tuple(pair) => f.write_fmt(format_args!("(:: {} {})", pair.0, pair.1)),
       Self::List(xs) => {
         f.write_str("([]")?;
         for x in xs {
-          f.write_str(&format!(" {}", x))?;
+          f.write_fmt(format_args!(" {}", x))?;
         }
         f.write_str(")")
       }
       Self::Set(xs) => {
         f.write_str("(#{}")?;
         for x in xs {
-          f.write_str(&format!(" {}", x))?;
+          f.write_fmt(format_args!(" {}", x))?;
         }
         f.write_str(")")
       }
       Self::Map(xs) => {
         f.write_str("({}")?;
         for (k, v) in xs {
-          f.write_str(&format!(" ({} {})", k, v))?;
+          f.write_fmt(format_args!(" ({} {})", k, v))?;
         }
         f.write_str(")")
       }
       Self::Record(name, entries) => {
-        f.write_str(&format!("(%{{}} {}", name))?;
+        f.write_fmt(format_args!("(%{{}} {}", name))?;
 
         for entry in entries {
-          f.write_str(&format!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
+          f.write_fmt(format_args!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
         }
 
         f.write_str(")")
@@ -88,8 +89,8 @@ impl fmt::Display for Edn {
 }
 
 fn is_simple_token(tok: &str) -> bool {
-  for s in tok.chars() {
-    if !matches!(s, '0'..='9' | 'A'..='Z'| 'a'..='z'|  '-' | '?' | '.'| '$' | ',') {
+  for s in tok.bytes() {
+    if !matches!(s, b'0'..=b'9' | b'A'..=b'Z'| b'a'..=b'z'|  b'-' | b'?' | b'.'| b'$' | b',') {
       return false;
     }
   }
@@ -204,11 +205,7 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
-      (Self::Tuple(a), Self::Tuple(b)) => match a.0.cmp(&b.0) {
-        Less => Less,
-        Greater => Greater,
-        Equal => a.1.cmp(&b.1),
-      },
+      (Self::Tuple(a), Self::Tuple(b)) => a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)),
       (Self::Tuple(..), _) => Less,
       (_, Self::Tuple(..)) => Greater,
 
@@ -229,17 +226,16 @@ impl Ord for Edn {
 
       (Self::Map(a), Self::Map(b)) => {
         match a.len().cmp(&b.len()) {
-          Equal => unreachable!(format!("TODO maps are not cmp ed {:?} {:?}", a, b)), // TODO
+          Equal => unreachable!("TODO maps are not cmp ed {:?} {:?}", a, b), // TODO
           a => a,
         }
       }
       (Self::Map(_), _) => Less,
       (_, Self::Map(_)) => Greater,
 
-      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => match name1.cmp(name2) {
-        Equal => entries1.cmp(entries2),
-        a => a,
-      },
+      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => {
+        name1.cmp(name2).then_with(|| entries1.cmp(entries2))
+      }
     }
   }
 }
@@ -426,6 +422,91 @@ impl Edn {
         }
       }
       a => Err(format!("target is not map: {}", a)),
+    }
+  }
+}
+
+impl TryInto<String> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<String, Self::Error> {
+    match self {
+      Edn::Str(s) => Ok((&*s).to_owned()),
+      Edn::Symbol(s) => Ok((&*s).to_owned()),
+      Edn::Keyword(s) => Ok((*s.to_str()).to_string()),
+      a => Err(format!("failed to convert to string: {}", a)),
+    }
+  }
+}
+
+impl TryInto<Box<str>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<Box<str>, Self::Error> {
+    match self {
+      Edn::Str(s) => Ok((&*s).into()),
+      a => Err(format!("failed to convert to box str: {}", a)),
+    }
+  }
+}
+
+impl TryInto<bool> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<bool, Self::Error> {
+    match self {
+      Edn::Bool(s) => Ok(s),
+      a => Err(format!("failed to convert to bool: {}", a)),
+    }
+  }
+}
+
+impl TryInto<f64> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<f64, Self::Error> {
+    match self {
+      Edn::Number(s) => Ok(s),
+      a => Err(format!("failed to convert to number: {}", a)),
+    }
+  }
+}
+
+impl TryInto<Cirru> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<Cirru, Self::Error> {
+    match self {
+      Edn::Quote(s) => Ok(s),
+      a => Err(format!("failed to convert to cirru code: {}", a)),
+    }
+  }
+}
+
+impl TryInto<Vec<Edn>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<Vec<Edn>, Self::Error> {
+    match self {
+      Edn::List(s) => Ok(s),
+      Edn::Nil => Ok(vec![]),
+      a => Err(format!("failed to convert to vec: {}", a)),
+    }
+  }
+}
+
+impl TryInto<HashSet<Edn>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<HashSet<Edn>, Self::Error> {
+    match self {
+      Edn::Set(s) => Ok(s),
+      Edn::Nil => Ok(HashSet::new()),
+      a => Err(format!("failed to convert to vec: {}", a)),
+    }
+  }
+}
+
+impl TryInto<HashMap<Edn, Edn>> for Edn {
+  type Error = String;
+  fn try_into(self) -> Result<HashMap<Edn, Edn>, Self::Error> {
+    match self {
+      Edn::Map(s) => Ok(s),
+      Edn::Nil => Ok(HashMap::new()),
+      a => Err(format!("failed to convert to vec: {}", a)),
     }
   }
 }
