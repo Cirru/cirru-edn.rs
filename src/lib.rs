@@ -3,6 +3,7 @@ mod primes;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::iter::FromIterator;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 
@@ -208,7 +209,9 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Set(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push(Cirru::leaf("#{}"));
-      for x in xs {
+      let mut items = xs.iter().collect::<Vec<_>>();
+      items.sort();
+      for x in items {
         ys.push(assemble_cirru_node(x));
       }
       Cirru::List(ys)
@@ -216,7 +219,9 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Map(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push(Cirru::leaf("{}"));
-      for (k, v) in xs {
+      let mut items = Vec::from_iter(xs.iter());
+      items.sort();
+      for (k, v) in items {
         ys.push(Cirru::List(vec![assemble_cirru_node(k), assemble_cirru_node(v)]))
       }
       Cirru::List(ys)
@@ -254,7 +259,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
   }
 }
 
-/// generate string fro, Edn
+/// generate string from Edn
 pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
   let options = CirruWriterOptions { use_inline };
   match assemble_cirru_node(data) {

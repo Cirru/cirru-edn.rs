@@ -1,4 +1,4 @@
-use cirru_edn::{Edn, EdnKwd};
+use cirru_edn::{self, Edn, EdnKwd};
 use cirru_parser::Cirru;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -249,5 +249,35 @@ fn test_buffer() -> Result<(), String> {
     String::from("buf 0a")
   );
 
+  Ok(())
+}
+
+#[test]
+fn test_string_order() -> Result<(), String> {
+  let mut data: HashMap<Edn, Edn> = HashMap::new();
+  data.insert(Edn::kwd("a"), Edn::Number(1.0));
+  data.insert(Edn::kwd("c"), Edn::Number(2.0));
+  data.insert(Edn::kwd("b"), Edn::Number(3.0));
+  data.insert(Edn::kwd("Z"), Edn::Number(4.0));
+  assert_eq!(
+    cirru_edn::format(&Edn::Map(data), true).unwrap().trim(),
+    "{} (:Z 4) (:a 1) (:b 3) (:c 2)".to_owned()
+  );
+
+  let mut data2: HashMap<Edn, Edn> = HashMap::new();
+  data2.insert(Edn::str("a"), Edn::Number(1.0));
+  data2.insert(Edn::str("c"), Edn::Number(2.0));
+  data2.insert(Edn::str("b"), Edn::Number(3.0));
+  data2.insert(Edn::str("Z"), Edn::Number(4.0));
+  assert_eq!(
+    cirru_edn::format(&Edn::Map(data2), true).unwrap().trim(),
+    "{} (|Z 4) (|a 1) (|b 3) (|c 2)".to_owned()
+  );
+
+  let mut v: HashSet<Edn> = HashSet::new();
+  v.insert(Edn::kwd("a"));
+  v.insert(Edn::kwd("1"));
+  v.insert(Edn::kwd("z"));
+  assert_eq!(Ok(Edn::Set(v)), cirru_edn::parse("#{} :z :a :1"));
   Ok(())
 }
