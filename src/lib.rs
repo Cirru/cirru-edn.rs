@@ -57,60 +57,92 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               }
             }
             "do" => {
-              if xs.len() == 2 {
-                extract_cirru_edn(&xs[1])
-              } else {
-                Err(String::from("missing edn do value"))
+              let mut ret: Option<Edn> = None;
+
+              for x in xs.iter().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                if ret.is_some() {
+                  return Err(String::from("multiple values in do"));
+                }
+                ret = Some(extract_cirru_edn(x)?);
               }
+              if ret == None {
+                return Err(String::from("missing edn do value"));
+              }
+              ret.ok_or_else(|| String::from("missing edn do value"))
             }
             "::" => {
-              if xs.len() == 3 {
-                Ok(Edn::tuple(extract_cirru_edn(&xs[1])?, extract_cirru_edn(&xs[2])?))
+              let mut fst: Option<Edn> = None;
+              let mut snd: Option<Edn> = None;
+              for x in xs.iter().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                if fst.is_some() {
+                  if snd.is_some() {
+                    return Err(String::from("too many values in ::"));
+                  }
+                  snd = Some(extract_cirru_edn(x)?);
+                } else {
+                  fst = Some(extract_cirru_edn(x)?);
+                }
+              }
+              if let Some(x0) = fst {
+                if let Some(x1) = snd {
+                  Ok(Edn::Tuple(Box::new((x0, x1))))
+                } else {
+                  Err(String::from("missing edn :: snd value"))
+                }
               } else {
-                Err(String::from("tuple expected 2 values"))
+                Err(String::from("missing edn :: fst value"))
               }
             }
             "[]" => {
               let mut ys: Vec<Edn> = Vec::with_capacity(xs.len() - 1);
-              for (idx, x) in xs.iter().enumerate() {
-                if idx > 0 {
-                  match extract_cirru_edn(x) {
-                    Ok(v) => ys.push(v),
-                    Err(v) => return Err(v),
-                  }
+              for x in xs.iter().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                match extract_cirru_edn(x) {
+                  Ok(v) => ys.push(v),
+                  Err(v) => return Err(v),
                 }
               }
               Ok(Edn::List(ys))
             }
             "#{}" => {
               let mut ys: HashSet<Edn> = HashSet::new();
-              for (idx, x) in xs.iter().enumerate() {
-                if idx > 0 {
-                  match extract_cirru_edn(x) {
-                    Ok(v) => {
-                      ys.insert(v);
-                    }
-                    Err(v) => return Err(v),
+              for x in xs.iter().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                match extract_cirru_edn(x) {
+                  Ok(v) => {
+                    ys.insert(v);
                   }
+                  Err(v) => return Err(v),
                 }
               }
               Ok(Edn::Set(ys))
             }
             "{}" => {
               let mut zs: HashMap<Edn, Edn> = HashMap::new();
-              for (idx, x) in xs.iter().enumerate() {
-                if idx > 0 {
-                  match x {
-                    Cirru::Leaf(s) => return Err(format!("expected a pair, invalid map entry: {}", s)),
-                    Cirru::List(ys) => {
-                      if ys.len() == 2 {
-                        match (extract_cirru_edn(&ys[0]), extract_cirru_edn(&ys[1])) {
-                          (Ok(k), Ok(v)) => {
-                            zs.insert(k, v);
-                          }
-                          (Err(e), _) => return Err(format!("invalid map entry `{}` from `{}`", e, &ys[0])),
-                          (Ok(k), Err(e)) => return Err(format!("invalid map entry for `{}`, got {}", k, e)),
+              for x in xs.iter().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                match x {
+                  Cirru::Leaf(s) => return Err(format!("expected a pair, invalid map entry: {}", s)),
+                  Cirru::List(ys) => {
+                    if ys.len() == 2 {
+                      match (extract_cirru_edn(&ys[0]), extract_cirru_edn(&ys[1])) {
+                        (Ok(k), Ok(v)) => {
+                          zs.insert(k, v);
                         }
+                        (Err(e), _) => return Err(format!("invalid map entry `{}` from `{}`", e, &ys[0])),
+                        (Ok(k), Err(e)) => return Err(format!("invalid map entry for `{}`, got {}", k, e)),
                       }
                     }
                   }
@@ -126,27 +158,31 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 };
                 let mut entries: Vec<(EdnKwd, Edn)> = Vec::with_capacity(xs.len() - 1);
 
-                for (idx, x) in xs.iter().enumerate() {
-                  if idx > 1 {
-                    match x {
-                      Cirru::Leaf(s) => return Err(format!("expected record, invalid record entry: {}", s)),
-                      Cirru::List(ys) => {
-                        if ys.len() == 2 {
-                          match (&ys[0], extract_cirru_edn(&ys[1])) {
-                            (Cirru::Leaf(s), Ok(v)) => {
-                              entries.push((EdnKwd::from(s.strip_prefix(':').unwrap_or(s)), v));
-                            }
-                            (Cirru::Leaf(s), Err(e)) => {
-                              return Err(format!("invalid record value for `{}`, got: {}", s, e))
-                            }
-                            (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {:?}", zs)),
+                for x in xs.iter().skip(2) {
+                  if is_comment(x) {
+                    continue;
+                  }
+                  match x {
+                    Cirru::Leaf(s) => return Err(format!("expected record, invalid record entry: {}", s)),
+                    Cirru::List(ys) => {
+                      if ys.len() == 2 {
+                        match (&ys[0], extract_cirru_edn(&ys[1])) {
+                          (Cirru::Leaf(s), Ok(v)) => {
+                            entries.push((EdnKwd::from(s.strip_prefix(':').unwrap_or(s)), v));
                           }
-                        } else {
-                          return Err(format!("expected pair of 2: {:?}", ys));
+                          (Cirru::Leaf(s), Err(e)) => {
+                            return Err(format!("invalid record value for `{}`, got: {}", s, e))
+                          }
+                          (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {:?}", zs)),
                         }
+                      } else {
+                        return Err(format!("expected pair of 2: {:?}", ys));
                       }
                     }
                   }
+                }
+                if entries.is_empty() {
+                  return Err(String::from("empty record is invalid"));
                 }
                 Ok(Edn::Record(name, entries))
               } else {
@@ -155,27 +191,28 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             }
             "buf" => {
               let mut ys: Vec<u8> = Vec::with_capacity(xs.len() - 1);
-              for (idx, x) in xs.iter().enumerate() {
-                if idx > 0 {
-                  match x {
-                    Cirru::Leaf(y) => {
-                      if y.len() == 2 {
-                        match hex::decode(&(**y)) {
-                          Ok(b) => {
-                            if b.len() == 1 {
-                              ys.push(b[0])
-                            } else {
-                              return Err(format!("hex for buffer might be too large, got: {:?}", b));
-                            }
+              for x in xs.iter().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                match x {
+                  Cirru::Leaf(y) => {
+                    if y.len() == 2 {
+                      match hex::decode(&(**y)) {
+                        Ok(b) => {
+                          if b.len() == 1 {
+                            ys.push(b[0])
+                          } else {
+                            return Err(format!("hex for buffer might be too large, got: {:?}", b));
                           }
-                          Err(e) => return Err(format!("expected length 2 hex string in buffer, got: {} {}", y, e)),
                         }
-                      } else {
-                        return Err(format!("expected length 2 hex string in buffer, got: {}", y));
+                        Err(e) => return Err(format!("expected length 2 hex string in buffer, got: {} {}", y, e)),
                       }
+                    } else {
+                      return Err(format!("expected length 2 hex string in buffer, got: {}", y));
                     }
-                    _ => return Err(format!("expected hex string in buffer, got: {}", x)),
                   }
+                  _ => return Err(format!("expected hex string in buffer, got: {}", x)),
                 }
               }
               Ok(Edn::Buffer(ys))
@@ -186,6 +223,13 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
         }
       }
     }
+  }
+}
+
+fn is_comment(node: &Cirru) -> bool {
+  match node {
+    Cirru::Leaf(_) => false,
+    Cirru::List(xs) => xs.first() == Some(&Cirru::Leaf(";".into())),
   }
 }
 

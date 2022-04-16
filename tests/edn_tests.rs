@@ -24,6 +24,13 @@ fn edn_parsing() {
   );
 
   assert_eq!(Ok(Edn::str("中文")), cirru_edn::parse("do |中文"));
+
+  assert_eq!(
+    Ok(Edn::List(vec![Edn::Number(1.), Edn::Number(2.)])),
+    cirru_edn::parse("[] (; one) 1 (; two) 2 (; end)")
+  );
+
+  assert_eq!(Ok(Edn::Number(1.)), cirru_edn::parse("do (; number) 1 (; end)"));
 }
 
 #[test]
