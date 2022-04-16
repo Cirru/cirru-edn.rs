@@ -287,6 +287,12 @@ impl Edn {
   pub fn tuple(a: Self, b: Self) -> Self {
     Edn::Tuple(Box::new((a, b)))
   }
+  pub fn is_literal(&self) -> bool {
+    matches!(
+      self,
+      Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Keyword(_) | Self::Str(_) | Self::Quote(_)
+    )
+  }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok((&**s).to_owned()),
