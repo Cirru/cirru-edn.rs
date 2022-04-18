@@ -1,6 +1,7 @@
 mod keyword;
 mod primes;
 
+use std::cmp::Ordering::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -264,7 +265,15 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push(Cirru::leaf("{}"));
       let mut items = Vec::from_iter(xs.iter());
-      items.sort();
+      items.sort_by(|(a1, a2): &(&Edn, &Edn), (b1, b2): &(&Edn, &Edn)| {
+        match (a1.is_literal(), b2.is_literal(), a2.is_literal(), b2.is_literal()) {
+          (true, true, true, false) => Less,
+          (true, true, false, true) => Greater,
+          (true, false, ..) => Less,
+          (false, true, ..) => Greater,
+          _ => a1.cmp(b1),
+        }
+      });
       for (k, v) in items {
         ys.push(Cirru::List(vec![assemble_cirru_node(k), assemble_cirru_node(v)]))
       }

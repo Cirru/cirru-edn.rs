@@ -58,6 +58,11 @@ fn set_parsing() {
   assert_eq!(Ok(Edn::Set(v)), cirru_edn::parse("#{} :a :b :c"));
 }
 
+const ORDER_DEMO: &str = r#"
+{} (:a 1) (:c 2)
+  :b $ [] 1 2
+"#;
+
 #[test]
 fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::Nil, true)?, "\ndo nil\n");
@@ -72,6 +77,18 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::kwd("a"), true)?, "\ndo :a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a b"), true)?, "\ndo \"|a b\"\n");
+
+  assert_eq!(
+    cirru_edn::format(
+      &Edn::Map(HashMap::from([
+        (Edn::kwd("b"), Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0)])),
+        (Edn::kwd("c"), Edn::Number(2.0)),
+        (Edn::kwd("a"), Edn::Number(1.0)),
+      ])),
+      true
+    )?,
+    ORDER_DEMO
+  );
 
   assert_eq!(
     cirru_edn::format(&Edn::tuple(Edn::kwd("a"), Edn::Number(1.0)), true)?,
