@@ -2,7 +2,7 @@
 name = "cirru_edn"
 version = "0.2.17"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Parser/Writer for Cirru EDN"
 homepage = "http://cirru.org"
@@ -13,12 +13,14 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cirru_parser = "0.1.18"
+cirru_parser = "0.1.19-a1"
 hex = "0.4.3"
 lazy_static = "1.4.0"
+serde = { version = "1.0.137", features = ["derive"] }
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.3.5"
+serde_json = "1.0.81"
 
 [[bench]]
 name = "parsing"

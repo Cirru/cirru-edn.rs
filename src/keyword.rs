@@ -12,8 +12,10 @@ use std::{
   hash::{Hash, Hasher},
 };
 
+use serde::{Deserialize, Serialize};
+
 /// keywords across whole program with strings reused
-#[derive(fmt::Debug, Clone)]
+#[derive(fmt::Debug, Clone, Serialize, Deserialize)]
 pub struct EdnKwd(
   /// which means there will be a limit of the count of all keywords
   Box<str>,

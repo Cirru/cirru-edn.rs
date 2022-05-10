@@ -1,3 +1,4 @@
+mod from_serde;
 mod keyword;
 mod primes;
 
@@ -10,6 +11,8 @@ use cirru_parser::{Cirru, CirruWriterOptions};
 
 pub use keyword::EdnKwd;
 pub use primes::Edn;
+
+pub use from_serde::EdnVisitor;
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {
