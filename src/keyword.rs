@@ -35,8 +35,14 @@ impl Hash for EdnKwd {
   }
 }
 
+impl From<&str> for EdnKwd {
+  fn from(s: &str) -> Self {
+    Self(Box::from(s))
+  }
+}
+
 impl EdnKwd {
-  pub fn from(s: &str) -> Self {
+  pub fn new(s: &str) -> Self {
     EdnKwd(s.into())
   }
 

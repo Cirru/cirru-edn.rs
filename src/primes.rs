@@ -1,9 +1,10 @@
 use std::{
   cmp::{Eq, Ordering, Ordering::*},
   collections::{HashMap, HashSet},
-  convert::TryInto,
+  convert::{TryFrom, TryInto},
   fmt,
   hash::{Hash, Hasher},
+  sync::Arc,
 };
 
 use cirru_parser::Cirru;
@@ -277,7 +278,7 @@ impl Edn {
   }
   /// create new keyword
   pub fn kwd(s: &str) -> Self {
-    Edn::Keyword(EdnKwd::from(s))
+    Edn::Keyword(EdnKwd::new(s))
   }
   /// create new symbol
   pub fn sym<T: Into<String>>(s: T) -> Self {
@@ -414,7 +415,6 @@ impl Edn {
       a => Err(format!("target is not vec: {}", a)),
     }
   }
-
   /// detects by keyword then string, return nil if not found
   pub fn map_get(&self, k: &str) -> Result<Edn, String> {
     match self {
@@ -430,89 +430,286 @@ impl Edn {
       a => Err(format!("target is not map: {}", a)),
     }
   }
+  /// detects by keyword then string, return nil if not found
+  pub fn map_get_some(&self, k: &str) -> Result<Edn, String> {
+    match self {
+      Edn::Map(xs) => {
+        let v = if xs.contains_key(&Edn::kwd(k)) {
+          xs[&Edn::kwd(k)].to_owned()
+        } else if xs.contains_key(&Edn::Str(k.to_owned().into_boxed_str())) {
+          xs[&Edn::Str(k.into())].to_owned()
+        } else {
+          return Err(format!("missing property `{}` in map {}", k, self));
+        };
+        if v == Edn::Nil {
+          Err(format!("does not expect a nil value of `{}` in map {}", k, self))
+        } else {
+          Ok(v)
+        }
+      }
+      a => Err(format!("target is not map: {}", a)),
+    }
+  }
 }
 
-impl TryInto<String> for Edn {
+impl TryFrom<Edn> for EdnKwd {
   type Error = String;
-  fn try_into(self) -> Result<String, Self::Error> {
-    match self {
+  fn try_from(x: Edn) -> Result<EdnKwd, String> {
+    match x {
+      Edn::Keyword(k) => Ok(k),
+      _ => Err(format!("failed to convert to keyword: {}", x)),
+    }
+  }
+}
+
+impl From<EdnKwd> for Edn {
+  fn from(k: EdnKwd) -> Edn {
+    Edn::Keyword(k)
+  }
+}
+
+impl TryFrom<Edn> for String {
+  type Error = String;
+  fn try_from(x: Edn) -> Result<String, Self::Error> {
+    match x {
       Edn::Str(s) => Ok((&*s).to_owned()),
-      Edn::Symbol(s) => Ok((&*s).to_owned()),
-      Edn::Keyword(s) => Ok((*s.to_str()).to_string()),
+      Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
       a => Err(format!("failed to convert to string: {}", a)),
     }
   }
 }
 
-impl TryInto<Box<str>> for Edn {
+impl From<String> for Edn {
+  fn from(x: String) -> Self {
+    Edn::Str(x.into())
+  }
+}
+
+impl From<&str> for Edn {
+  fn from(x: &str) -> Self {
+    Edn::Str(x.into())
+  }
+}
+
+impl TryFrom<Edn> for Box<str> {
   type Error = String;
-  fn try_into(self) -> Result<Box<str>, Self::Error> {
-    match self {
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
       Edn::Str(s) => Ok((&*s).into()),
       a => Err(format!("failed to convert to box str: {}", a)),
     }
   }
 }
 
-impl TryInto<bool> for Edn {
+impl From<Box<str>> for Edn {
+  fn from(x: Box<str>) -> Self {
+    Edn::Str(x)
+  }
+}
+
+impl TryFrom<Edn> for Arc<str> {
   type Error = String;
-  fn try_into(self) -> Result<bool, Self::Error> {
-    match self {
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Str(s) => Ok((&*s).into()),
+      a => Err(format!("failed to convert to arc str: {}", a)),
+    }
+  }
+}
+
+impl From<Arc<str>> for Edn {
+  fn from(x: Arc<str>) -> Self {
+    Edn::Str((*x).into())
+  }
+}
+
+impl TryFrom<Edn> for bool {
+  type Error = String;
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
       Edn::Bool(s) => Ok(s),
       a => Err(format!("failed to convert to bool: {}", a)),
     }
   }
 }
 
-impl TryInto<f64> for Edn {
+impl From<bool> for Edn {
+  fn from(x: bool) -> Self {
+    Edn::Bool(x)
+  }
+}
+
+impl TryFrom<Edn> for f64 {
   type Error = String;
-  fn try_into(self) -> Result<f64, Self::Error> {
-    match self {
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
       Edn::Number(s) => Ok(s),
       a => Err(format!("failed to convert to number: {}", a)),
     }
   }
 }
 
-impl TryInto<Cirru> for Edn {
+impl From<f64> for Edn {
+  fn from(x: f64) -> Self {
+    Edn::Number(x)
+  }
+}
+
+impl TryFrom<Edn> for f32 {
   type Error = String;
-  fn try_into(self) -> Result<Cirru, Self::Error> {
-    match self {
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Number(s) => Ok(s as f32),
+      a => Err(format!("failed to convert to number: {}", a)),
+    }
+  }
+}
+
+impl From<f32> for Edn {
+  fn from(x: f32) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl TryFrom<Edn> for i64 {
+  type Error = String;
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Number(s) => Ok(s as i64),
+      a => Err(format!("failed to convert to number: {}", a)),
+    }
+  }
+}
+
+impl From<i64> for Edn {
+  fn from(x: i64) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl TryFrom<Edn> for Cirru {
+  type Error = String;
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
       Edn::Quote(s) => Ok(s),
       a => Err(format!("failed to convert to cirru code: {}", a)),
     }
   }
 }
 
-impl TryInto<Vec<Edn>> for Edn {
+impl<T> TryFrom<Edn> for Vec<T>
+where
+  T: TryFrom<Edn, Error = String>,
+{
   type Error = String;
-  fn try_into(self) -> Result<Vec<Edn>, Self::Error> {
-    match self {
-      Edn::List(s) => Ok(s),
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::List(xs) => {
+        let mut ys = Vec::new();
+        for x in xs {
+          let y = x.try_into()?;
+          ys.push(y);
+        }
+        Ok(ys)
+      }
       Edn::Nil => Ok(vec![]),
       a => Err(format!("failed to convert to vec: {}", a)),
     }
   }
 }
 
-impl TryInto<HashSet<Edn>> for Edn {
+/// `Option<T>` is a special case to convert since it has it's own implementation in core.
+/// To handle `Edn::Nil` which is dynamically typed, some code like this is required:
+/// ```ignore
+/// {
+///   let v = value.map_get("<FIELD_NAME>")?;
+///   if v == Edn::Nil {
+///     None
+///   } else {
+///     Some(v.try_into()?)
+///   }
+/// }
+/// ```
+impl<T> From<Option<T>> for Edn
+where
+  T: Into<Edn>,
+{
+  fn from(xs: Option<T>) -> Self {
+    match xs {
+      Some(x) => x.into(),
+      None => Edn::Nil,
+    }
+  }
+}
+
+impl<T> From<Vec<T>> for Edn
+where
+  T: Into<Edn>,
+{
+  fn from(xs: Vec<T>) -> Self {
+    Edn::List(xs.into_iter().map(|x| x.into()).collect())
+  }
+}
+
+impl<T> TryFrom<Edn> for HashSet<T>
+where
+  T: TryFrom<Edn, Error = String> + Eq + Hash,
+{
   type Error = String;
-  fn try_into(self) -> Result<HashSet<Edn>, Self::Error> {
-    match self {
-      Edn::Set(s) => Ok(s),
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Set(xs) => {
+        let mut ys = HashSet::new();
+        for x in xs {
+          let y = x.try_into()?;
+          ys.insert(y);
+        }
+        Ok(ys)
+      }
       Edn::Nil => Ok(HashSet::new()),
       a => Err(format!("failed to convert to vec: {}", a)),
     }
   }
 }
 
-impl TryInto<HashMap<Edn, Edn>> for Edn {
+impl<T> From<HashSet<T>> for Edn
+where
+  T: Into<Edn>,
+{
+  fn from(xs: HashSet<T>) -> Self {
+    Edn::Set(xs.into_iter().map(|x| x.into()).collect())
+  }
+}
+
+impl<T, K> TryFrom<Edn> for HashMap<K, T>
+where
+  T: TryFrom<Edn, Error = String>,
+  K: TryFrom<Edn, Error = String> + Eq + Hash,
+{
   type Error = String;
-  fn try_into(self) -> Result<HashMap<Edn, Edn>, Self::Error> {
-    match self {
-      Edn::Map(s) => Ok(s),
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Map(xs) => {
+        let mut ys = HashMap::new();
+        for (k, v) in xs {
+          let k = k.try_into()?;
+          let v = v.try_into()?;
+          ys.insert(k, v);
+        }
+        Ok(ys)
+      }
       Edn::Nil => Ok(HashMap::new()),
       a => Err(format!("failed to convert to vec: {}", a)),
     }
+  }
+}
+
+impl<T, K> From<HashMap<K, T>> for Edn
+where
+  T: Into<Edn>,
+  K: Into<Edn>,
+{
+  fn from(xs: HashMap<K, T>) -> Self {
+    Edn::Map(xs.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
   }
 }
