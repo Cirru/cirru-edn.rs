@@ -1,8 +1,8 @@
 [package]
 name = "cirru_edn"
-version = "0.2.18-a1"
+version = "0.2.18-a2"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Parser/Writer for Cirru EDN"
 homepage = "http://cirru.org"

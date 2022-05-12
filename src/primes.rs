@@ -4,6 +4,7 @@ use std::{
   convert::{TryFrom, TryInto},
   fmt,
   hash::{Hash, Hasher},
+  iter::FromIterator,
   sync::Arc,
 };
 
@@ -294,6 +295,9 @@ impl Edn {
       Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Keyword(_) | Self::Str(_) | Self::Quote(_)
     )
   }
+  pub fn map_from_iter<T: IntoIterator<Item = (Edn, Edn)>>(pairs: T) -> Self {
+    Self::Map(HashMap::from_iter(pairs))
+  }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok((&**s).to_owned()),
@@ -468,6 +472,12 @@ impl From<EdnKwd> for Edn {
   }
 }
 
+impl From<&EdnKwd> for Edn {
+  fn from(k: &EdnKwd) -> Edn {
+    Edn::Keyword(k.to_owned())
+  }
+}
+
 impl TryFrom<Edn> for String {
   type Error = String;
   fn try_from(x: Edn) -> Result<String, Self::Error> {
@@ -507,6 +517,12 @@ impl From<Box<str>> for Edn {
   }
 }
 
+impl From<&Box<str>> for Edn {
+  fn from(x: &Box<str>) -> Self {
+    Edn::Str(x.to_owned())
+  }
+}
+
 impl TryFrom<Edn> for Arc<str> {
   type Error = String;
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
@@ -520,6 +536,12 @@ impl TryFrom<Edn> for Arc<str> {
 impl From<Arc<str>> for Edn {
   fn from(x: Arc<str>) -> Self {
     Edn::Str((*x).into())
+  }
+}
+
+impl From<&Arc<str>> for Edn {
+  fn from(x: &Arc<str>) -> Self {
+    Edn::Str((**x).into())
   }
 }
 
@@ -539,6 +561,12 @@ impl From<bool> for Edn {
   }
 }
 
+impl From<&bool> for Edn {
+  fn from(x: &bool) -> Self {
+    Edn::Bool(*x)
+  }
+}
+
 impl TryFrom<Edn> for f64 {
   type Error = String;
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
@@ -552,6 +580,12 @@ impl TryFrom<Edn> for f64 {
 impl From<f64> for Edn {
   fn from(x: f64) -> Self {
     Edn::Number(x)
+  }
+}
+
+impl From<&f64> for Edn {
+  fn from(x: &f64) -> Self {
+    Edn::Number(*x)
   }
 }
 
@@ -571,6 +605,12 @@ impl From<f32> for Edn {
   }
 }
 
+impl From<&f32> for Edn {
+  fn from(x: &f32) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
 impl TryFrom<Edn> for i64 {
   type Error = String;
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
@@ -584,6 +624,24 @@ impl TryFrom<Edn> for i64 {
 impl From<i64> for Edn {
   fn from(x: i64) -> Self {
     Edn::Number(x as f64)
+  }
+}
+
+impl From<&i64> for Edn {
+  fn from(x: &i64) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl From<Cirru> for Edn {
+  fn from(x: Cirru) -> Self {
+    Edn::Quote(x)
+  }
+}
+
+impl From<&Cirru> for Edn {
+  fn from(x: &Cirru) -> Self {
+    Edn::Quote(x.to_owned())
   }
 }
 
@@ -642,12 +700,42 @@ where
   }
 }
 
+impl<'a, T> From<&'a Option<&'a T>> for Edn
+where
+  T: Into<Edn> + Clone,
+{
+  fn from(xs: &'a Option<&'a T>) -> Self {
+    match xs {
+      Some(x) => (*x).to_owned().into(),
+      None => Edn::Nil,
+    }
+  }
+}
+
 impl<T> From<Vec<T>> for Edn
 where
   T: Into<Edn>,
 {
   fn from(xs: Vec<T>) -> Self {
     Edn::List(xs.into_iter().map(|x| x.into()).collect())
+  }
+}
+
+impl<'a, T> From<&'a Vec<&'a T>> for Edn
+where
+  T: Into<Edn> + Clone,
+{
+  fn from(xs: &'a Vec<&'a T>) -> Self {
+    Edn::List(xs.iter().map(|x| (*x).to_owned().into()).collect())
+  }
+}
+
+impl<'a, T> From<&'a [&'a T]> for Edn
+where
+  T: Into<Edn> + Clone,
+{
+  fn from(xs: &'a [&'a T]) -> Self {
+    Edn::List(xs.iter().map(|x| (*x).to_owned().into()).collect())
   }
 }
 
@@ -681,6 +769,15 @@ where
   }
 }
 
+impl<'a, T> From<&'a HashSet<&'a T>> for Edn
+where
+  T: Into<Edn> + Clone,
+{
+  fn from(xs: &'a HashSet<&'a T>) -> Self {
+    Edn::Set(xs.iter().map(|x| (*x).to_owned().into()).collect())
+  }
+}
+
 impl<T, K> TryFrom<Edn> for HashMap<K, T>
 where
   T: TryFrom<Edn, Error = String>,
@@ -711,5 +808,19 @@ where
 {
   fn from(xs: HashMap<K, T>) -> Self {
     Edn::Map(xs.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
+  }
+}
+
+impl<'a, T, K> From<&'a HashMap<&'a K, &'a T>> for Edn
+where
+  T: Into<Edn> + Clone,
+  K: Into<Edn> + Clone,
+{
+  fn from(xs: &'a HashMap<&'a K, &'a T>) -> Self {
+    Edn::Map(
+      xs.iter()
+        .map(|(k, v)| ((*k).to_owned().into(), (*v).to_owned().into()))
+        .collect(),
+    )
   }
 }
