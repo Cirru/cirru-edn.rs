@@ -154,7 +154,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             "%{}" => {
               if xs.len() >= 3 {
                 let name = match &xs[1] {
-                  Cirru::Leaf(s) => EdnKwd::from(s.strip_prefix(':').unwrap_or(s)),
+                  Cirru::Leaf(s) => EdnKwd::new(s.strip_prefix(':').unwrap_or(s)),
                   Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
                 };
                 let mut entries: Vec<(EdnKwd, Edn)> = Vec::with_capacity(xs.len() - 1);
@@ -169,7 +169,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                       if ys.len() == 2 {
                         match (&ys[0], extract_cirru_edn(&ys[1])) {
                           (Cirru::Leaf(s), Ok(v)) => {
-                            entries.push((EdnKwd::from(s.strip_prefix(':').unwrap_or(s)), v));
+                            entries.push((EdnKwd::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
                           (Cirru::Leaf(s), Err(e)) => {
                             return Err(format!("invalid record value for `{}`, got: {}", s, e))
