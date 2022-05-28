@@ -1,6 +1,6 @@
 [package]
 name = "cirru_edn"
-version = "0.2.18"
+version = "0.2.19"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -13,7 +13,7 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cirru_parser = "0.1.21"
+cirru_parser = "0.1.x"
 hex = "0.4.3"
 lazy_static = "1.4.0"
 
