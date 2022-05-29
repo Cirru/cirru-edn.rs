@@ -1,7 +1,6 @@
 extern crate cirru_edn;
 
 use cirru_edn::{Edn, EdnKwd};
-use cirru_parser::Cirru;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -229,7 +228,7 @@ fn debug_format() {
   let singleton_vec = vec![Edn::Bool(false)];
   assert_eq!(format!("{}", Edn::List(singleton_vec)), "([] false)");
 
-  let code = Edn::List(vec![Edn::Quote(Cirru::List(vec![Cirru::leaf("a"), Cirru::leaf("b")]))]);
+  let code = Edn::List(vec![Edn::Quote(vec!["a", "b"].into())]);
 
   assert_eq!(format!("{}", code), "([] (quote (a b)))");
 }

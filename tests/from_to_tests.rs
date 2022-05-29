@@ -11,6 +11,7 @@ struct Cat {
   weight: f64,
   skills: Vec<EdnKwd>,
   counts: HashMap<String, i64>,
+  injection_times: u8,
   owner: Option<String>,
 }
 
@@ -23,6 +24,7 @@ impl TryFrom<Edn> for Cat {
       weight: value.map_get_some("weight")?.try_into()?,
       skills: value.map_get_some("skills")?.try_into()?,
       counts: value.map_get_some("counts")?.try_into()?,
+      injection_times: value.map_get_some("injection_times")?.try_into()?,
       owner: {
         let v = value.map_get("owner")?;
         if v == Edn::Nil {
@@ -44,6 +46,7 @@ impl From<Cat> for Edn {
       ("weight".into(), x.weight.into()),
       ("skills".into(), x.skills.into()),
       ("counts".into(), x.counts.into()),
+      ("injection_times".into(), x.injection_times.into()),
       ("owner".into(), x.owner.into()),
     ]))
   }
@@ -63,6 +66,7 @@ fn from_to_test() -> Result<(), String> {
       "counts".into(),
       Edn::Map(HashMap::from_iter([("a".into(), Edn::Number(1.))])),
     ),
+    ("injection_times".into(), Edn::Number(10.0)),
     // ("owner".into(), Edn::str("Kii")),
     ("owner".into(), Edn::Nil),
   ]));

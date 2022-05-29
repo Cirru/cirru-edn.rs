@@ -633,6 +633,62 @@ impl From<&i64> for Edn {
   }
 }
 
+impl From<u8> for Edn {
+  fn from(x: u8) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&u8> for Edn {
+  fn from(x: &u8) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl TryFrom<Edn> for u8 {
+  type Error = String;
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Number(s) => {
+        if s >= u8::MIN as f64 && s <= u8::MAX as f64 && s.fract().abs() <= f64::EPSILON {
+          Ok(s as u8)
+        } else {
+          Err(format!("invalid u8 value: {}", s))
+        }
+      }
+      a => Err(format!("failed to convert to u8: {}", a)),
+    }
+  }
+}
+
+impl From<i8> for Edn {
+  fn from(x: i8) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&i8> for Edn {
+  fn from(x: &i8) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl TryFrom<Edn> for i8 {
+  type Error = String;
+  fn try_from(x: Edn) -> Result<Self, Self::Error> {
+    match x {
+      Edn::Number(s) => {
+        if s >= i8::MIN as f64 && s <= i8::MAX as f64 && s.fract().abs() <= f64::EPSILON {
+          Ok(s as i8)
+        } else {
+          Err(format!("invalid i8 value: {}", s))
+        }
+      }
+      a => Err(format!("failed to convert to i8: {}", a)),
+    }
+  }
+}
+
 impl From<Cirru> for Edn {
   fn from(x: Cirru) -> Self {
     Edn::Quote(x)
