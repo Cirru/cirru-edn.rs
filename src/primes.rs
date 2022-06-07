@@ -484,6 +484,7 @@ impl TryFrom<Edn> for String {
     match x {
       Edn::Str(s) => Ok((&*s).to_owned()),
       Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
+      Edn::Keyword(s) => Ok(s.to_string()),
       a => Err(format!("failed to convert to string: {}", a)),
     }
   }
@@ -506,6 +507,7 @@ impl TryFrom<Edn> for Box<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((&*s).into()),
+      Edn::Keyword(s) => Ok(s.to_str()),
       a => Err(format!("failed to convert to box str: {}", a)),
     }
   }
@@ -528,6 +530,7 @@ impl TryFrom<Edn> for Arc<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((&*s).into()),
+      Edn::Keyword(s) => Ok((s.to_str()).into()),
       a => Err(format!("failed to convert to arc str: {}", a)),
     }
   }
