@@ -33,7 +33,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
         '\'' => Ok(Edn::Symbol(s1[1..].into())),
-        ':' => Ok(Edn::kwd(&s1[1..].to_owned())),
+        ':' => Ok(Edn::kwd(&s1[1..])),
         '"' | '|' => Ok(Edn::Str(s1[1..].into())),
         _ => {
           if let Ok(f) = s1.trim().parse::<f64>() {
