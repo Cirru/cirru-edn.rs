@@ -266,7 +266,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       ys.push("{}".into());
       let mut items = Vec::from_iter(xs.iter());
       items.sort_by(|(a1, a2): &(&Edn, &Edn), (b1, b2): &(&Edn, &Edn)| {
-        match (a1.is_literal(), b2.is_literal(), a2.is_literal(), b2.is_literal()) {
+        match (a1.is_literal(), b1.is_literal(), a2.is_literal(), b2.is_literal()) {
           (true, true, true, false) => Less,
           (true, true, false, true) => Greater,
           (true, false, ..) => Less,
