@@ -292,7 +292,7 @@ impl Edn {
   pub fn is_literal(&self) -> bool {
     matches!(
       self,
-      Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Keyword(_) | Self::Str(_) | Self::Quote(_)
+      Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Keyword(_) | Self::Str(_)
     )
   }
   pub fn map_from_iter<T: IntoIterator<Item = (Edn, Edn)>>(pairs: T) -> Self {
