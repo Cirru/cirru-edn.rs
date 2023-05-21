@@ -5,6 +5,7 @@ use std::cmp::Ordering::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::vec;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 
@@ -69,7 +70,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 }
                 ret = Some(extract_cirru_edn(x)?);
               }
-              if ret == None {
+              if ret.is_none() {
                 return Err(String::from("missing edn do value"));
               }
               ret.ok_or_else(|| String::from("missing edn do value"))
@@ -92,7 +93,11 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               }
               if let Some(x0) = fst {
                 if let Some(x1) = snd {
-                  Ok(Edn::Tuple(Box::new((x0, x1))))
+                  let mut extra: Vec<Edn> = vec![];
+                  for item in &xs[3..] {
+                    extra.push(extract_cirru_edn(item)?);
+                  }
+                  Ok(Edn::Tuple(Box::new((x0, x1)), extra))
                 } else {
                   Err(String::from("missing edn :: snd value"))
                 }
@@ -293,8 +298,11 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 
       Cirru::List(ys)
     }
-    Edn::Tuple(pair) => {
-      let ys: Vec<Cirru> = vec!["::".into(), assemble_cirru_node(&pair.0), assemble_cirru_node(&pair.1)];
+    Edn::Tuple(pair, extra) => {
+      let mut ys: Vec<Cirru> = vec!["::".into(), assemble_cirru_node(&pair.0), assemble_cirru_node(&pair.1)];
+      for item in extra {
+        ys.push(assemble_cirru_node(item))
+      }
       Cirru::List(ys)
     }
     Edn::Buffer(buf) => {

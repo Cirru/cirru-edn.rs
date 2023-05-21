@@ -20,7 +20,7 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Number(-2.2)), cirru_edn::parse("do -2.2"));
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::kwd("a"), Edn::Number(1.0))),
+    Ok(Edn::tuple(Edn::kwd("a"), Edn::Number(1.0), vec![])),
     cirru_edn::parse(":: :a 1")
   );
 
@@ -92,7 +92,7 @@ fn edn_formatting() -> Result<(), String> {
   );
 
   assert_eq!(
-    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), Edn::Number(1.0)), true)?,
+    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), Edn::Number(1.0), vec![]), true)?,
     "\n:: :a 1\n"
   );
 
