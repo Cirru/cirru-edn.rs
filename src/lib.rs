@@ -78,13 +78,15 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             "::" => {
               let mut fst: Option<Edn> = None;
               let mut snd: Option<Edn> = None;
+              let mut extra: Vec<Edn> = vec![];
               for x in xs.iter().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
                 if fst.is_some() {
                   if snd.is_some() {
-                    return Err(String::from("too many values in ::"));
+                    extra.push(extract_cirru_edn(x)?);
+                    continue;
                   }
                   snd = Some(extract_cirru_edn(x)?);
                 } else {
@@ -93,10 +95,6 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               }
               if let Some(x0) = fst {
                 if let Some(x1) = snd {
-                  let mut extra: Vec<Edn> = vec![];
-                  for item in &xs[3..] {
-                    extra.push(extract_cirru_edn(item)?);
-                  }
                   Ok(Edn::Tuple(Box::new((x0, x1)), extra))
                 } else {
                   Err(String::from("missing edn :: snd value"))

@@ -100,6 +100,12 @@ tuple, or tagged union, actually very limitted due to Calcit semantics:
 :: :a 1
 ```
 
+extra values can be added to tuple since `0.3`:
+
+```cirru
+:: :a 1 |extra :l
+```
+
 a record, notice that now it's all using keywords:
 
 ```cirru
