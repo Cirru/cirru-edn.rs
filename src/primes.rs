@@ -23,7 +23,7 @@ pub enum Edn {
   Keyword(EdnKwd),
   Str(Box<str>), // name collision
   Quote(Cirru),
-  Tuple(Box<(Edn, Edn)>),
+  Tuple(Box<(Edn, Edn)>, Vec<Edn>),
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
@@ -47,7 +47,17 @@ impl fmt::Display for Edn {
         }
       }
       Self::Quote(v) => f.write_fmt(format_args!("(quote {})", v)),
-      Self::Tuple(pair) => f.write_fmt(format_args!("(:: {} {})", pair.0, pair.1)),
+      Self::Tuple(pair, extra) => {
+        let mut extra_str = String::new();
+        for item in extra {
+          if !extra_str.is_empty() {
+            extra_str.push(' ');
+          }
+          extra_str.push_str(&item.to_string());
+        }
+
+        f.write_fmt(format_args!("(:: {} {} {extra_str})", pair.0, pair.1))
+      }
       Self::List(xs) => {
         f.write_str("([]")?;
         for x in xs {
@@ -130,10 +140,11 @@ impl Hash for Edn {
         "quote:".hash(_state);
         v.hash(_state);
       }
-      Self::Tuple(pair) => {
+      Self::Tuple(pair, extra) => {
         "tuple".hash(_state);
         pair.0.hash(_state);
         pair.1.hash(_state);
+        extra.hash(_state);
       }
       Self::List(v) => {
         "list:".hash(_state);
@@ -207,7 +218,11 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
-      (Self::Tuple(a), Self::Tuple(b)) => a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)),
+      (Self::Tuple(a, extra1), Self::Tuple(b, extra2)) => a
+        .0
+        .cmp(&b.0)
+        .then_with(|| a.1.cmp(&b.1))
+        .then_with(|| extra1.cmp(extra2)),
       (Self::Tuple(..), _) => Less,
       (_, Self::Tuple(..)) => Greater,
 
@@ -260,7 +275,7 @@ impl PartialEq for Edn {
       (Self::Keyword(a), Self::Keyword(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
       (Self::Quote(a), Self::Quote(b)) => a == b,
-      (Self::Tuple(a), Self::Tuple(b)) => a.0 == b.0 && a.1 == b.1,
+      (Self::Tuple(a, e1), Self::Tuple(b, e2)) => a.0 == b.0 && a.1 == b.1 && e1 == e2,
       (Self::List(a), Self::List(b)) => a == b,
       (Self::Buffer(a), Self::Buffer(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
@@ -286,8 +301,8 @@ impl Edn {
     Edn::Symbol(s.into().into_boxed_str())
   }
   /// create new tuple
-  pub fn tuple(a: Self, b: Self) -> Self {
-    Edn::Tuple(Box::new((a, b)))
+  pub fn tuple(a: Self, b: Self, extra: Vec<Self>) -> Self {
+    Edn::Tuple(Box::new((a, b)), extra)
   }
   pub fn is_literal(&self) -> bool {
     matches!(
