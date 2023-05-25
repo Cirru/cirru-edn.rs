@@ -76,29 +76,21 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               ret.ok_or_else(|| String::from("missing edn do value"))
             }
             "::" => {
-              let mut fst: Option<Edn> = None;
-              let mut snd: Option<Edn> = None;
+              let mut tag: Option<Edn> = None;
               let mut extra: Vec<Edn> = vec![];
               for x in xs.iter().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
-                if fst.is_some() {
-                  if snd.is_some() {
-                    extra.push(extract_cirru_edn(x)?);
-                    continue;
-                  }
-                  snd = Some(extract_cirru_edn(x)?);
+                if tag.is_some() {
+                  extra.push(extract_cirru_edn(x)?);
+                  continue;
                 } else {
-                  fst = Some(extract_cirru_edn(x)?);
+                  tag = Some(extract_cirru_edn(x)?);
                 }
               }
-              if let Some(x0) = fst {
-                if let Some(x1) = snd {
-                  Ok(Edn::Tuple(Box::new((x0, x1)), extra))
-                } else {
-                  Err(String::from("missing edn :: snd value"))
-                }
+              if let Some(x0) = tag {
+                Ok(Edn::Tuple(Box::new(x0), extra))
               } else {
                 Err(String::from("missing edn :: fst value"))
               }
@@ -296,8 +288,8 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 
       Cirru::List(ys)
     }
-    Edn::Tuple(pair, extra) => {
-      let mut ys: Vec<Cirru> = vec!["::".into(), assemble_cirru_node(&pair.0), assemble_cirru_node(&pair.1)];
+    Edn::Tuple(tag, extra) => {
+      let mut ys: Vec<Cirru> = vec!["::".into(), assemble_cirru_node(tag)];
       for item in extra {
         ys.push(assemble_cirru_node(item))
       }

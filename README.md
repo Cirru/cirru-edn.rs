@@ -97,7 +97,9 @@ nested list:
 tuple, or tagged union, actually very limitted due to Calcit semantics:
 
 ```cirru
-:: :a 1
+:: :a
+
+:: :b 1
 ```
 
 extra values can be added to tuple since `0.3`:

@@ -19,21 +19,22 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Number(2.0)), cirru_edn::parse("do 2"));
   assert_eq!(Ok(Edn::Number(-2.2)), cirru_edn::parse("do -2.2"));
 
+  assert_eq!(Ok(Edn::tuple(Edn::kwd("a"), vec![])), cirru_edn::parse(":: :a"));
+
   assert_eq!(
-    Ok(Edn::tuple(Edn::kwd("a"), Edn::Number(1.0), vec![])),
+    Ok(Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0)])),
     cirru_edn::parse(":: :a 1")
   );
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::kwd("a"), Edn::Number(1.0), vec![Edn::Number(2.0)])),
+    Ok(Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0), Edn::Number(2.0)])),
     cirru_edn::parse(":: :a 1 2")
   );
 
   assert_eq!(
     Ok(Edn::tuple(
       Edn::kwd("a"),
-      Edn::Number(1.0),
-      vec![Edn::Number(2.0), Edn::str("b")]
+      vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")]
     )),
     cirru_edn::parse(":: :a 1 2 |b")
   );
@@ -106,13 +107,18 @@ fn edn_formatting() -> Result<(), String> {
   );
 
   assert_eq!(
-    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), Edn::Number(1.0), vec![]), true)?,
+    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0)]), true)?,
     "\n:: :a 1\n"
   );
 
   assert_eq!(
+    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), vec![]), true)?,
+    "\n:: :a\n"
+  );
+
+  assert_eq!(
     cirru_edn::format(
-      &Edn::tuple(Edn::kwd("a"), Edn::Number(1.0), vec![Edn::kwd("c"), Edn::Nil]),
+      &Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0), Edn::kwd("c"), Edn::Nil]),
       true
     )?,
     "\n:: :a 1 :c nil\n"
