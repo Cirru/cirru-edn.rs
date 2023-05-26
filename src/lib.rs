@@ -1,5 +1,5 @@
-mod keyword;
 mod primes;
+mod tag;
 
 use std::cmp::Ordering::*;
 use std::collections::HashMap;
@@ -9,8 +9,8 @@ use std::vec;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 
-pub use keyword::EdnKwd;
 pub use primes::Edn;
+pub use tag::EdnTag;
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {
@@ -34,7 +34,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
       "" => Err(String::from("empty string is invalid for edn")),
       s1 => match s1.chars().next().unwrap() {
         '\'' => Ok(Edn::Symbol(s1[1..].into())),
-        ':' => Ok(Edn::kwd(&s1[1..])),
+        ':' => Ok(Edn::tag(&s1[1..])),
         '"' | '|' => Ok(Edn::Str(s1[1..].into())),
         _ => {
           if let Ok(f) = s1.trim().parse::<f64>() {
@@ -149,10 +149,10 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             "%{}" => {
               if xs.len() >= 3 {
                 let name = match &xs[1] {
-                  Cirru::Leaf(s) => EdnKwd::new(s.strip_prefix(':').unwrap_or(s)),
+                  Cirru::Leaf(s) => EdnTag::new(s.strip_prefix(':').unwrap_or(s)),
                   Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
                 };
-                let mut entries: Vec<(EdnKwd, Edn)> = Vec::with_capacity(xs.len() - 1);
+                let mut entries: Vec<(EdnTag, Edn)> = Vec::with_capacity(xs.len() - 1);
 
                 for x in xs.iter().skip(2) {
                   if is_comment(x) {
@@ -164,7 +164,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                       if ys.len() == 2 {
                         match (&ys[0], extract_cirru_edn(&ys[1])) {
                           (Cirru::Leaf(s), Ok(v)) => {
-                            entries.push((EdnKwd::new(s.strip_prefix(':').unwrap_or(s)), v));
+                            entries.push((EdnTag::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
                           (Cirru::Leaf(s), Err(e)) => {
                             return Err(format!("invalid record value for `{}`, got: {}", s, e))
@@ -235,7 +235,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Bool(v) => v.to_string().into(),
     Edn::Number(n) => n.to_string().into(),
     Edn::Symbol(s) => format!("'{}", s).into(),
-    Edn::Keyword(s) => format!(":{}", s).into(),
+    Edn::Tag(s) => format!(":{}", s).into(),
     Edn::Str(s) => format!("|{}", s).into(),
     Edn::Quote(v) => Cirru::List(vec!["quote".into(), (*v).to_owned()]),
     Edn::List(xs) => {

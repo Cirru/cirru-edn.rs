@@ -1,6 +1,6 @@
 extern crate cirru_edn;
 
-use cirru_edn::{Edn, EdnKwd};
+use cirru_edn::{Edn, EdnTag};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -11,7 +11,7 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Bool(false)), cirru_edn::parse("do false"));
 
   assert_eq!(Ok(Edn::sym("a")), cirru_edn::parse("do 'a"));
-  assert_eq!(Ok(Edn::kwd("k")), cirru_edn::parse("do :k"));
+  assert_eq!(Ok(Edn::tag("k")), cirru_edn::parse("do :k"));
   assert_eq!(Ok(Edn::str("s")), cirru_edn::parse("do |s"));
 
   assert_eq!(Ok(Edn::str("a b\n c")), cirru_edn::parse(r#"do "|a b\n c""#));
@@ -19,21 +19,21 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Number(2.0)), cirru_edn::parse("do 2"));
   assert_eq!(Ok(Edn::Number(-2.2)), cirru_edn::parse("do -2.2"));
 
-  assert_eq!(Ok(Edn::tuple(Edn::kwd("a"), vec![])), cirru_edn::parse(":: :a"));
+  assert_eq!(Ok(Edn::tuple(Edn::tag("a"), vec![])), cirru_edn::parse(":: :a"));
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0)])),
+    Ok(Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0)])),
     cirru_edn::parse(":: :a 1")
   );
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0), Edn::Number(2.0)])),
+    Ok(Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0), Edn::Number(2.0)])),
     cirru_edn::parse(":: :a 1 2")
   );
 
   assert_eq!(
     Ok(Edn::tuple(
-      Edn::kwd("a"),
+      Edn::tag("a"),
       vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")]
     )),
     cirru_edn::parse(":: :a 1 2 |b")
@@ -68,9 +68,9 @@ fn list_parsing() {
 #[test]
 fn set_parsing() {
   let mut v: HashSet<Edn> = HashSet::new();
-  v.insert(Edn::kwd("a"));
-  v.insert(Edn::kwd("b"));
-  v.insert(Edn::kwd("c"));
+  v.insert(Edn::tag("a"));
+  v.insert(Edn::tag("b"));
+  v.insert(Edn::tag("c"));
   assert_eq!(Ok(Edn::Set(v)), cirru_edn::parse("#{} :a :b :c"));
 }
 
@@ -90,16 +90,16 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::Number(-1.1), true)?, "\ndo -1.1\n");
 
   assert_eq!(cirru_edn::format(&Edn::sym("a"), true)?, "\ndo 'a\n");
-  assert_eq!(cirru_edn::format(&Edn::kwd("a"), true)?, "\ndo :a\n");
+  assert_eq!(cirru_edn::format(&Edn::tag("a"), true)?, "\ndo :a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a b"), true)?, "\ndo \"|a b\"\n");
 
   assert_eq!(
     cirru_edn::format(
       &Edn::Map(HashMap::from([
-        (Edn::kwd("b"), Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0)])),
-        (Edn::kwd("c"), Edn::Number(2.0)),
-        (Edn::kwd("a"), Edn::Number(1.0)),
+        (Edn::tag("b"), Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0)])),
+        (Edn::tag("c"), Edn::Number(2.0)),
+        (Edn::tag("a"), Edn::Number(1.0)),
       ])),
       true
     )?,
@@ -107,18 +107,18 @@ fn edn_formatting() -> Result<(), String> {
   );
 
   assert_eq!(
-    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0)]), true)?,
+    cirru_edn::format(&Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0)]), true)?,
     "\n:: :a 1\n"
   );
 
   assert_eq!(
-    cirru_edn::format(&Edn::tuple(Edn::kwd("a"), vec![]), true)?,
+    cirru_edn::format(&Edn::tuple(Edn::tag("a"), vec![]), true)?,
     "\n:: :a\n"
   );
 
   assert_eq!(
     cirru_edn::format(
-      &Edn::tuple(Edn::kwd("a"), vec![Edn::Number(1.0), Edn::kwd("c"), Edn::Nil]),
+      &Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0), Edn::tag("c"), Edn::Nil]),
       true
     )?,
     "\n:: :a 1 :c nil\n"
@@ -194,12 +194,12 @@ fn demo_parsing() -> Result<(), String> {
   assert_eq!(
     cirru_edn::parse(RECORD_DEMO),
     Ok(Edn::Record(
-      EdnKwd::new("Demo"),
+      EdnTag::new("Demo"),
       vec![
-        (EdnKwd::new("a"), Edn::Number(1.0),),
-        (EdnKwd::new("b"), Edn::Number(2.0)),
+        (EdnTag::new("a"), Edn::Number(1.0),),
+        (EdnTag::new("b"), Edn::Number(2.0)),
         (
-          EdnKwd::new("c"),
+          EdnTag::new("c"),
           Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
         )
       ],
@@ -214,12 +214,12 @@ fn demo_parsing() -> Result<(), String> {
   assert_eq!(
     cirru_edn::format(
       &Edn::Record(
-        EdnKwd::new("Demo"),
+        EdnTag::new("Demo"),
         vec![
-          (EdnKwd::new("a"), Edn::Number(1.0),),
-          (EdnKwd::new("b"), Edn::Number(2.0)),
+          (EdnTag::new("a"), Edn::Number(1.0),),
+          (EdnTag::new("b"), Edn::Number(2.0)),
           (
-            EdnKwd::new("c"),
+            EdnTag::new("c"),
             Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)])
           )
         ],
@@ -246,7 +246,7 @@ fn debug_format() {
   assert_eq!(format!("{}", Edn::Map(empty)), "({})");
 
   let mut singleton: HashMap<Edn, Edn> = HashMap::new();
-  singleton.insert(Edn::kwd("a"), Edn::str("b"));
+  singleton.insert(Edn::tag("a"), Edn::str("b"));
   assert_eq!(format!("{}", Edn::Map(singleton)), "({} (:a |b))");
 
   let mut singleton_set: HashSet<Edn> = HashSet::new();
@@ -266,13 +266,13 @@ fn test_reader() -> Result<(), String> {
   assert!(Edn::Bool(true).read_bool()?);
   assert_eq!(Edn::str("a").read_string()?, String::from("a"));
   assert_eq!(Edn::sym("a").read_symbol_string()?, String::from("a"));
-  assert_eq!(Edn::kwd("a").read_keyword_string()?, String::from("a"));
+  assert_eq!(Edn::tag("a").read_tag_string()?, String::from("a"));
   assert!((Edn::Number(1.1).read_number()? - 1.1).abs() < f64::EPSILON);
   assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(0)?, Edn::Number(1.0));
   assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(1)?, Edn::Nil);
 
   let mut dict = HashMap::new();
-  dict.insert(Edn::kwd("k"), Edn::Number(1.1));
+  dict.insert(Edn::tag("k"), Edn::Number(1.1));
   assert!((Edn::Map(dict.to_owned()).map_get("k")?.read_number()? - 1.1).abs() < f64::EPSILON);
   assert_eq!(Edn::Map(dict).map_get("k2")?, Edn::Nil);
   Ok(())
@@ -308,10 +308,10 @@ fn test_buffer() -> Result<(), String> {
 #[test]
 fn test_string_order() -> Result<(), String> {
   let mut data: HashMap<Edn, Edn> = HashMap::new();
-  data.insert(Edn::kwd("a"), Edn::Number(1.0));
-  data.insert(Edn::kwd("c"), Edn::Number(2.0));
-  data.insert(Edn::kwd("b"), Edn::Number(3.0));
-  data.insert(Edn::kwd("Z"), Edn::Number(4.0));
+  data.insert(Edn::tag("a"), Edn::Number(1.0));
+  data.insert(Edn::tag("c"), Edn::Number(2.0));
+  data.insert(Edn::tag("b"), Edn::Number(3.0));
+  data.insert(Edn::tag("Z"), Edn::Number(4.0));
   assert_eq!(
     cirru_edn::format(&Edn::Map(data), true).unwrap().trim(),
     "{} (:Z 4) (:a 1) (:b 3) (:c 2)".to_owned()
@@ -328,9 +328,9 @@ fn test_string_order() -> Result<(), String> {
   );
 
   let mut v: HashSet<Edn> = HashSet::new();
-  v.insert(Edn::kwd("a"));
-  v.insert(Edn::kwd("1"));
-  v.insert(Edn::kwd("z"));
+  v.insert(Edn::tag("a"));
+  v.insert(Edn::tag("1"));
+  v.insert(Edn::tag("z"));
   assert_eq!(Ok(Edn::Set(v)), cirru_edn::parse("#{} :z :a :1"));
   Ok(())
 }

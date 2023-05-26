@@ -68,6 +68,8 @@ do 'a
 quote (a b)
 ```
 
+tags(previously called "keyword")
+
 ```cirru
 do :a
 ```
@@ -108,7 +110,7 @@ extra values can be added to tuple since `0.3`:
 :: :a 1 |extra :l
 ```
 
-a record, notice that now it's all using keywords:
+a record, notice that now it's all using tags:
 
 ```cirru
 %{} :Demo (:a 1)

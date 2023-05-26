@@ -10,7 +10,7 @@ use std::{
 
 use cirru_parser::Cirru;
 
-use crate::keyword::EdnKwd;
+use crate::tag::EdnTag;
 
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
@@ -20,14 +20,14 @@ pub enum Edn {
   Bool(bool),
   Number(f64),
   Symbol(Box<str>),
-  Keyword(EdnKwd),
+  Tag(EdnTag),
   Str(Box<str>), // name collision
   Quote(Cirru),
   Tuple(Box<Edn>, Vec<Edn>),
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
-  Record(EdnKwd, Vec<(EdnKwd, Edn)>),
+  Record(EdnTag, Vec<(EdnTag, Edn)>),
   Buffer(Vec<u8>),
 }
 
@@ -38,7 +38,7 @@ impl fmt::Display for Edn {
       Self::Bool(v) => f.write_fmt(format_args!("{}", v)),
       Self::Number(n) => f.write_fmt(format_args!("{}", n)),
       Self::Symbol(s) => f.write_fmt(format_args!("'{}", s)),
-      Self::Keyword(s) => f.write_fmt(format_args!(":{}", s)),
+      Self::Tag(s) => f.write_fmt(format_args!(":{}", s)),
       Self::Str(s) => {
         if is_simple_token(s) {
           f.write_fmt(format_args!("|{}", s))
@@ -83,7 +83,7 @@ impl fmt::Display for Edn {
         f.write_fmt(format_args!("(%{{}} {}", name))?;
 
         for entry in entries {
-          f.write_fmt(format_args!("({} {})", Edn::Keyword(entry.0.to_owned()), entry.1))?;
+          f.write_fmt(format_args!("({} {})", Edn::Tag(entry.0.to_owned()), entry.1))?;
         }
 
         f.write_str(")")
@@ -128,8 +128,8 @@ impl Hash for Edn {
         "symbol:".hash(_state);
         s.hash(_state);
       }
-      Self::Keyword(s) => {
-        "keyword:".hash(_state);
+      Self::Tag(s) => {
+        "tag:".hash(_state);
         s.hash(_state);
       }
       Self::Str(s) => {
@@ -205,9 +205,9 @@ impl Ord for Edn {
       (Self::Symbol(_), _) => Less,
       (_, Self::Symbol(_)) => Greater,
 
-      (Self::Keyword(a), Self::Keyword(b)) => a.cmp(b),
-      (Self::Keyword(_), _) => Less,
-      (_, Self::Keyword(_)) => Greater,
+      (Self::Tag(a), Self::Tag(b)) => a.cmp(b),
+      (Self::Tag(_), _) => Less,
+      (_, Self::Tag(_)) => Greater,
 
       (Self::Str(a), Self::Str(b)) => a.cmp(b),
       (Self::Str(_), _) => Less,
@@ -267,7 +267,7 @@ impl PartialEq for Edn {
       (Self::Bool(a), Self::Bool(b)) => a == b,
       (Self::Number(a), Self::Number(b)) => (a - b).abs() < f64::EPSILON,
       (Self::Symbol(a), Self::Symbol(b)) => a == b,
-      (Self::Keyword(a), Self::Keyword(b)) => a == b,
+      (Self::Tag(a), Self::Tag(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
       (Self::Quote(a), Self::Quote(b)) => a == b,
       (Self::Tuple(a, e1), Self::Tuple(b, e2)) => a == b && e1 == e2,
@@ -287,9 +287,9 @@ impl Edn {
   pub fn str<T: Into<String>>(s: T) -> Self {
     Edn::Str(s.into().into_boxed_str())
   }
-  /// create new keyword
-  pub fn kwd(s: &str) -> Self {
-    Edn::Keyword(EdnKwd::new(s))
+  /// create new tag
+  pub fn tag(s: &str) -> Self {
+    Edn::Tag(EdnTag::new(s))
   }
   /// create new symbol
   pub fn sym<T: Into<String>>(s: T) -> Self {
@@ -302,7 +302,7 @@ impl Edn {
   pub fn is_literal(&self) -> bool {
     matches!(
       self,
-      Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Keyword(_) | Self::Str(_)
+      Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Tag(_) | Self::Str(_)
     )
   }
   pub fn map_from_iter<T: IntoIterator<Item = (Edn, Edn)>>(pairs: T) -> Self {
@@ -320,10 +320,10 @@ impl Edn {
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
-  pub fn read_keyword_string(&self) -> Result<String, String> {
+  pub fn read_tag_string(&self) -> Result<String, String> {
     match self {
-      Edn::Keyword(s) => Ok(s.to_string()),
-      a => Err(format!("failed to convert to keyword: {}", a)),
+      Edn::Tag(s) => Ok(s.to_string()),
+      a => Err(format!("failed to convert to tag: {}", a)),
     }
   }
   pub fn read_str(&self) -> Result<Box<str>, String> {
@@ -340,8 +340,8 @@ impl Edn {
   }
   pub fn read_kwd_str(&self) -> Result<Box<str>, String> {
     match self {
-      Edn::Keyword(s) => Ok(s.to_str()),
-      a => Err(format!("failed to convert to keyword: {}", a)),
+      Edn::Tag(s) => Ok(s.to_str()),
+      a => Err(format!("failed to convert to tag: {}", a)),
     }
   }
 
@@ -429,12 +429,12 @@ impl Edn {
       a => Err(format!("target is not vec: {}", a)),
     }
   }
-  /// detects by keyword then string, return nil if not found
+  /// detects by tag then string, return nil if not found
   pub fn map_get(&self, k: &str) -> Result<Edn, String> {
     match self {
       Edn::Map(xs) => {
-        if xs.contains_key(&Edn::kwd(k)) {
-          Ok(xs[&Edn::kwd(k)].to_owned())
+        if xs.contains_key(&Edn::tag(k)) {
+          Ok(xs[&Edn::tag(k)].to_owned())
         } else if xs.contains_key(&Edn::Str(k.to_owned().into_boxed_str())) {
           Ok(xs[&Edn::Str(k.into())].to_owned())
         } else {
@@ -444,12 +444,12 @@ impl Edn {
       a => Err(format!("target is not map: {}", a)),
     }
   }
-  /// detects by keyword then string, return nil if not found
+  /// detects by tag then string, return nil if not found
   pub fn map_get_some(&self, k: &str) -> Result<Edn, String> {
     match self {
       Edn::Map(xs) => {
-        let v = if xs.contains_key(&Edn::kwd(k)) {
-          xs[&Edn::kwd(k)].to_owned()
+        let v = if xs.contains_key(&Edn::tag(k)) {
+          xs[&Edn::tag(k)].to_owned()
         } else if xs.contains_key(&Edn::Str(k.to_owned().into_boxed_str())) {
           xs[&Edn::Str(k.into())].to_owned()
         } else {
@@ -466,25 +466,25 @@ impl Edn {
   }
 }
 
-impl TryFrom<Edn> for EdnKwd {
+impl TryFrom<Edn> for EdnTag {
   type Error = String;
-  fn try_from(x: Edn) -> Result<EdnKwd, String> {
+  fn try_from(x: Edn) -> Result<EdnTag, String> {
     match x {
-      Edn::Keyword(k) => Ok(k),
-      _ => Err(format!("failed to convert to keyword: {}", x)),
+      Edn::Tag(k) => Ok(k),
+      _ => Err(format!("failed to convert to tag: {}", x)),
     }
   }
 }
 
-impl From<EdnKwd> for Edn {
-  fn from(k: EdnKwd) -> Edn {
-    Edn::Keyword(k)
+impl From<EdnTag> for Edn {
+  fn from(k: EdnTag) -> Edn {
+    Edn::Tag(k)
   }
 }
 
-impl From<&EdnKwd> for Edn {
-  fn from(k: &EdnKwd) -> Edn {
-    Edn::Keyword(k.to_owned())
+impl From<&EdnTag> for Edn {
+  fn from(k: &EdnTag) -> Edn {
+    Edn::Tag(k.to_owned())
   }
 }
 
@@ -494,7 +494,7 @@ impl TryFrom<Edn> for String {
     match x {
       Edn::Str(s) => Ok((*s).to_owned()),
       Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
-      Edn::Keyword(s) => Ok(s.to_string()),
+      Edn::Tag(s) => Ok(s.to_string()),
       a => Err(format!("failed to convert to string: {}", a)),
     }
   }
@@ -517,7 +517,7 @@ impl TryFrom<Edn> for Box<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).into()),
-      Edn::Keyword(s) => Ok(s.to_str()),
+      Edn::Tag(s) => Ok(s.to_str()),
       a => Err(format!("failed to convert to box str: {}", a)),
     }
   }
@@ -540,7 +540,7 @@ impl TryFrom<Edn> for Arc<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).into()),
-      Edn::Keyword(s) => Ok((s.to_str()).into()),
+      Edn::Tag(s) => Ok((s.to_str()).into()),
       a => Err(format!("failed to convert to arc str: {}", a)),
     }
   }

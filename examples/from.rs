@@ -3,14 +3,14 @@ extern crate cirru_edn;
 use std::convert::TryFrom;
 use std::{collections::HashMap, convert::TryInto, iter::FromIterator};
 
-use cirru_edn::{Edn, EdnKwd};
+use cirru_edn::{Edn, EdnTag};
 
 #[derive(Debug, Clone, PartialEq)]
 struct Cat {
   name: String,
-  category: EdnKwd,
+  category: EdnTag,
   weight: f64,
-  skills: Vec<EdnKwd>,
+  skills: Vec<EdnTag>,
   counts: HashMap<String, i64>,
   owner: Option<String>,
 }
@@ -53,7 +53,7 @@ impl From<Cat> for Edn {
 fn main() -> Result<(), String> {
   let data: Edn = Edn::Map(HashMap::from_iter([
     ("name".into(), Edn::str("Kii")),
-    ("category".into(), Edn::kwd("ying")),
+    ("category".into(), Edn::tag("ying")),
     // ("weight".into(), Edn::Number(1.0)),
     // (
     //   "skills".into(),
