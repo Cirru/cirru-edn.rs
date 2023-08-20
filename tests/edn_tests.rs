@@ -334,3 +334,26 @@ fn test_string_order() -> Result<(), String> {
   assert_eq!(Ok(Edn::Set(v)), cirru_edn::parse("#{} :z :a :1"));
   Ok(())
 }
+
+#[test]
+fn test_format_record() -> Result<(), String> {
+  let record = Edn::Record(
+    EdnTag::new("Demo"),
+    vec![
+      (EdnTag::new("a"), Edn::Number(1.0)),
+      (
+        EdnTag::new("c"),
+        Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)]),
+      ),
+      (EdnTag::new("b"), Edn::Number(2.0)),
+      (EdnTag::new("d"), Edn::Number(3.0)),
+    ],
+  );
+
+  assert_eq!(
+    cirru_edn::format(&record, true)?,
+    "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
+  );
+
+  Ok(())
+}
