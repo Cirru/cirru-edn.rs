@@ -278,7 +278,13 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       let mut ys: Vec<Cirru> = Vec::with_capacity(entries.len() + 2);
       ys.push("%{}".into());
       ys.push(format!(":{}", name).into());
-      for entry in entries {
+      let mut ordered_entries = entries.to_owned();
+      ordered_entries.sort_by(|(_a1, a2), (_b1, b2)| match (a2.is_literal(), b2.is_literal()) {
+        (true, false) => Less,
+        (false, true) => Greater,
+        _ => Equal,
+      });
+      for entry in ordered_entries {
         let v = &entry.1;
         ys.push(Cirru::List(vec![
           format!(":{}", entry.0).into(),

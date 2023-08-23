@@ -308,6 +308,9 @@ impl Edn {
   pub fn map_from_iter<T: IntoIterator<Item = (Edn, Edn)>>(pairs: T) -> Self {
     Self::Map(HashMap::from_iter(pairs))
   }
+  pub fn record_from_pairs(tag: EdnTag, pairs: &[(EdnTag, Edn)]) -> Self {
+    Self::Record(tag, pairs.to_vec())
+  }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok((**s).to_owned()),
@@ -462,6 +465,21 @@ impl Edn {
         }
       }
       a => Err(format!("target is not map: {}", a)),
+    }
+  }
+
+  /// read from record
+  pub fn record_get(&self, k: &str) -> Result<Edn, String> {
+    match self {
+      Edn::Record(_t, pairs) => {
+        for pair in pairs {
+          if k == &*pair.0.to_str() {
+            return Ok(pair.1.to_owned());
+          }
+        }
+        Err(format!("not found for key: {k}"))
+      }
+      a => Err(format!("target is not record: {}", a)),
     }
   }
 }
