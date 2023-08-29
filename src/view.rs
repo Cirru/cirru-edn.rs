@@ -27,12 +27,12 @@ impl EdnListView {
   pub fn read(self) -> Vec<Edn> {
     match self.data {
       Edn::List(xs) => xs,
-      a => unreachable!("failed to convert to list: {}", a),
+      a => unreachable!("data is not list: {}", a),
     }
   }
 
-  pub fn get_or_nil(self, index: usize) -> Edn {
-    match self.data {
+  pub fn get_or_nil(&self, index: usize) -> Edn {
+    match &self.data {
       Edn::List(xs) => {
         if index < xs.len() {
           xs[index].clone()
@@ -40,7 +40,7 @@ impl EdnListView {
           Edn::Nil
         }
       }
-      a => unreachable!("failed to convert to list: {}", a),
+      a => unreachable!("data is not list: {}", a),
     }
   }
 }
@@ -68,19 +68,19 @@ impl EdnMapView {
   pub fn read(self) -> HashMap<Edn, Edn> {
     match self.data {
       Edn::Map(xs) => xs,
-      a => unreachable!("failed to convert to map: {}", a),
+      a => unreachable!("data is not a map: {}", a),
     }
   }
 
   /// regardless of key in string or tag
-  pub fn get_or_nil(self, key: &str) -> Edn {
-    match self.data {
+  pub fn get_or_nil(&self, key: &str) -> Edn {
+    match &self.data {
       Edn::Map(xs) => xs
         .get(&Edn::str(key))
         .cloned()
         .or_else(|| xs.get(&Edn::tag(key)).cloned())
         .unwrap_or(Edn::Nil),
-      a => unreachable!("failed to convert to map: {}", a),
+      a => unreachable!("data is not a map: {}", a),
     }
   }
 }
@@ -104,21 +104,26 @@ impl From<EdnRecordView> for Edn {
   }
 }
 
-impl EdnRecordView {
-  pub fn get(self, k: &str) -> Edn {
-    match self.data {
+use std::ops::Index;
+impl Index<&str> for EdnRecordView {
+  type Output = Edn;
+
+  fn index(&self, index: &str) -> &Self::Output {
+    match &self.data {
       Edn::Record(_t, pairs) => {
         for pair in pairs {
-          if k == &*pair.0.to_str() {
-            return pair.1;
+          if index == &*pair.0.to_str() {
+            return &pair.1;
           }
         }
-        unreachable!("missing key in record: {}", k)
+        unreachable!("missing key in record: {}", index)
       }
-      a => unreachable!("failed to convert to record: {}", a),
+      a => unreachable!("data is not a record: {}", a),
     }
   }
 }
+
+impl EdnRecordView {}
 
 // Set
 
