@@ -1,5 +1,6 @@
 mod primes;
 mod tag;
+mod view;
 
 use std::cmp::Ordering::*;
 use std::collections::HashMap;

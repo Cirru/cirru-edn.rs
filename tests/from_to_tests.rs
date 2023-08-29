@@ -19,14 +19,14 @@ impl TryFrom<Edn> for Cat {
   type Error = String;
   fn try_from(value: Edn) -> Result<Self, Self::Error> {
     let c = Cat {
-      name: value.map_get_some("name")?.try_into()?,
-      category: value.map_get_some("category")?.try_into()?,
-      weight: value.map_get_some("weight")?.try_into()?,
-      skills: value.map_get_some("skills")?.try_into()?,
-      counts: value.map_get_some("counts")?.try_into()?,
-      injection_times: value.map_get_some("injection_times")?.try_into()?,
+      name: value.view_map()?.get_or_nil("name").try_into()?,
+      category: value.view_map()?.get_or_nil("category").try_into()?,
+      weight: value.view_map()?.get_or_nil("weight").try_into()?,
+      skills: value.view_map()?.get_or_nil("skills").try_into()?,
+      counts: value.view_map()?.get_or_nil("counts").try_into()?,
+      injection_times: value.view_map()?.get_or_nil("injection_times").try_into()?,
       owner: {
-        let v = value.map_get("owner")?;
+        let v = value.view_map()?.get_or_nil("owner");
         if v == Edn::Nil {
           None
         } else {
@@ -73,6 +73,6 @@ fn from_to_test() -> Result<(), String> {
   let cat: Cat = data.try_into()?;
   assert_eq!(cat.name, "Kii");
   let data2: Edn = cat.into();
-  assert_eq!(data2.map_get("name")?, Edn::str("Kii"));
+  assert_eq!(data2.view_map()?.get_or_nil("name"), Edn::str("Kii"));
   Ok(())
 }

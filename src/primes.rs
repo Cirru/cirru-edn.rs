@@ -10,7 +10,10 @@ use std::{
 
 use cirru_parser::Cirru;
 
-use crate::tag::EdnTag;
+use crate::{
+  tag::EdnTag,
+  view::{EdnListView, EdnMapView, EdnRecordView, EdnSetView},
+};
 
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
@@ -323,12 +326,6 @@ impl Edn {
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
-  pub fn read_tag_string(&self) -> Result<String, String> {
-    match self {
-      Edn::Tag(s) => Ok(s.to_string()),
-      a => Err(format!("failed to convert to tag: {}", a)),
-    }
-  }
   pub fn read_str(&self) -> Result<Box<str>, String> {
     match self {
       Edn::Str(s) => Ok(s.to_owned()),
@@ -341,7 +338,7 @@ impl Edn {
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
-  pub fn read_kwd_str(&self) -> Result<Box<str>, String> {
+  pub fn read_tag_str(&self) -> Result<Box<str>, String> {
     match self {
       Edn::Tag(s) => Ok(s.to_str()),
       a => Err(format!("failed to convert to tag: {}", a)),
@@ -369,117 +366,36 @@ impl Edn {
     }
   }
 
-  pub fn read_list(&self) -> Result<Vec<Edn>, String> {
+  // viewers
+
+  pub fn view_list(&self) -> Result<EdnListView, String> {
     match self {
-      Edn::List(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Err(String::from("cannot read list from nil")),
-      a => Err(format!("failed to convert to vec: {}", a)),
+      Edn::List(xs) => Ok(Edn::List(xs.to_owned()).into()),
+      Edn::Nil => Ok(Edn::List(vec![]).into()),
+      a => Err(format!("failed to convert to list: {}", a)),
     }
   }
 
-  pub fn read_list_or_nil(&self) -> Result<Vec<Edn>, String> {
+  pub fn view_map(&self) -> Result<EdnMapView, String> {
     match self {
-      Edn::List(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Ok(vec![]),
-      a => Err(format!("failed to convert to vec: {}", a)),
-    }
-  }
-
-  pub fn read_set(&self) -> Result<HashSet<Edn>, String> {
-    match self {
-      Edn::Set(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Err(String::from("cannot read set from nil")),
-      a => Err(format!("failed to convert to set: {}", a)),
-    }
-  }
-
-  // as_set, but allow nil
-  pub fn read_set_or_nil(&self) -> Result<HashSet<Edn>, String> {
-    match self {
-      Edn::Set(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Ok(HashSet::new()),
-      a => Err(format!("failed to convert to set: {}", a)),
-    }
-  }
-
-  pub fn read_map(&self) -> Result<HashMap<Edn, Edn>, String> {
-    match self {
-      Edn::Map(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Err(String::from("cannot read map from nil")),
+      Edn::Map(xs) => Ok(Edn::Map(xs.to_owned()).into()),
+      Edn::Nil => Ok(Edn::Map(HashMap::new()).into()),
       a => Err(format!("failed to convert to map: {}", a)),
     }
   }
 
-  // as_map, but allow nil being treated as empty map
-  pub fn read_map_or_nil(&self) -> Result<HashMap<Edn, Edn>, String> {
+  pub fn view_set(&self) -> Result<EdnSetView, String> {
     match self {
-      Edn::Map(xs) => Ok(xs.to_owned()),
-      Edn::Nil => Ok(HashMap::new()),
-      a => Err(format!("failed to convert to map: {}", a)),
+      Edn::Set(xs) => Ok(Edn::Set(xs.to_owned()).into()),
+      Edn::Nil => Ok(Edn::Set(HashSet::new()).into()),
+      a => Err(format!("failed to convert to set: {}", a)),
     }
   }
 
-  /// detects by index
-  pub fn vec_get(&self, idx: usize) -> Result<Edn, String> {
+  pub fn view_record(&self) -> Result<EdnRecordView, String> {
     match self {
-      Edn::List(xs) => {
-        if idx < xs.len() {
-          Ok(xs[idx].to_owned())
-        } else {
-          Ok(Edn::Nil)
-        }
-      }
-      a => Err(format!("target is not vec: {}", a)),
-    }
-  }
-  /// detects by tag then string, return nil if not found
-  pub fn map_get(&self, k: &str) -> Result<Edn, String> {
-    match self {
-      Edn::Map(xs) => {
-        if xs.contains_key(&Edn::tag(k)) {
-          Ok(xs[&Edn::tag(k)].to_owned())
-        } else if xs.contains_key(&Edn::Str(k.to_owned().into_boxed_str())) {
-          Ok(xs[&Edn::Str(k.into())].to_owned())
-        } else {
-          Ok(Edn::Nil)
-        }
-      }
-      a => Err(format!("target is not map: {}", a)),
-    }
-  }
-  /// detects by tag then string, return nil if not found
-  pub fn map_get_some(&self, k: &str) -> Result<Edn, String> {
-    match self {
-      Edn::Map(xs) => {
-        let v = if xs.contains_key(&Edn::tag(k)) {
-          xs[&Edn::tag(k)].to_owned()
-        } else if xs.contains_key(&Edn::Str(k.to_owned().into_boxed_str())) {
-          xs[&Edn::Str(k.into())].to_owned()
-        } else {
-          return Err(format!("missing property `{}` in map {}", k, self));
-        };
-        if v == Edn::Nil {
-          Err(format!("does not expect a nil value of `{}` in map {}", k, self))
-        } else {
-          Ok(v)
-        }
-      }
-      a => Err(format!("target is not map: {}", a)),
-    }
-  }
-
-  /// read from record
-  pub fn record_get(&self, k: &str) -> Result<Edn, String> {
-    match self {
-      Edn::Record(_t, pairs) => {
-        for pair in pairs {
-          if k == &*pair.0.to_str() {
-            return Ok(pair.1.to_owned());
-          }
-        }
-        Err(format!("not found for key: {k}"))
-      }
-      a => Err(format!("target is not record: {}", a)),
+      Edn::Record(tag, pairs) => Ok(Edn::Record(tag.to_owned(), pairs.to_owned()).into()),
+      a => Err(format!("failed to convert to record: {}", a)),
     }
   }
 }
