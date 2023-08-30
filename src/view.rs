@@ -7,6 +7,7 @@ use std::{
 
 // List
 
+/// List interface for Edn::List
 #[derive(fmt::Debug, Clone, Default)]
 pub struct EdnListView(pub Vec<Edn>);
 
@@ -49,10 +50,15 @@ impl EdnListView {
   pub fn is_empty(&self) -> bool {
     self.0.is_empty()
   }
+
+  pub fn push(&mut self, x: Edn) {
+    self.0.push(x)
+  }
 }
 
 // Map
 
+/// Map interface for Edn::Map
 #[derive(fmt::Debug, Clone, Default)]
 pub struct EdnMapView(pub HashMap<Edn, Edn>);
 
@@ -94,10 +100,20 @@ impl EdnMapView {
   pub fn contains_key(&self, key: &str) -> bool {
     self.0.contains_key(&Edn::str(key)) || self.0.contains_key(&Edn::tag(key))
   }
+
+  pub fn insert(&mut self, k: Edn, v: Edn) {
+    self.0.insert(k, v);
+  }
+
+  /// takes k that impl Into<EdnTag>
+  pub fn insert_key(&mut self, k: impl Into<EdnTag>, v: Edn) {
+    self.0.insert(k.into().into(), v);
+  }
 }
 
 // Record
 
+/// Record interface for Edn::Record
 #[derive(fmt::Debug, Clone)]
 pub struct EdnRecordView {
   pub tag: EdnTag,
@@ -154,6 +170,11 @@ impl EdnRecordView {
     }
     false
   }
+
+  /// quick hand for building record
+  pub fn insert(&mut self, k: impl Into<EdnTag>, v: Edn) {
+    self.pairs.push((k.into(), v))
+  }
 }
 
 // Set
@@ -188,5 +209,9 @@ impl From<EdnSetView> for Edn {
 impl EdnSetView {
   pub fn contains(&self, x: &Edn) -> bool {
     self.0.contains(x)
+  }
+
+  pub fn insert(&mut self, x: Edn) {
+    self.0.insert(x);
   }
 }
