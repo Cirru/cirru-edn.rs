@@ -371,7 +371,7 @@ impl Edn {
   pub fn view_list(&self) -> Result<EdnListView, String> {
     match self {
       Edn::List(xs) => Ok(xs.to_owned().into()),
-      Edn::Nil => Ok(EdnListView::new()),
+      Edn::Nil => Ok(EdnListView::default()),
       a => Err(format!("failed to convert to list: {}", a)),
     }
   }
@@ -379,7 +379,7 @@ impl Edn {
   pub fn view_map(&self) -> Result<EdnMapView, String> {
     match self {
       Edn::Map(xs) => Ok(xs.to_owned().into()),
-      Edn::Nil => Ok(EdnMapView::new()),
+      Edn::Nil => Ok(EdnMapView::default()),
       a => Err(format!("failed to convert to map: {}", a)),
     }
   }
@@ -387,7 +387,7 @@ impl Edn {
   pub fn view_set(&self) -> Result<EdnSetView, String> {
     match self {
       Edn::Set(xs) => Ok(xs.to_owned().into()),
-      Edn::Nil => Ok(EdnSetView::new()),
+      Edn::Nil => Ok(EdnSetView::default()),
       a => Err(format!("failed to convert to set: {}", a)),
     }
   }

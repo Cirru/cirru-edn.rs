@@ -7,7 +7,7 @@ use std::{
 
 // List
 
-#[derive(fmt::Debug, Clone)]
+#[derive(fmt::Debug, Clone, Default)]
 pub struct EdnListView(pub Vec<Edn>);
 
 impl TryFrom<Edn> for EdnListView {
@@ -35,10 +35,6 @@ impl From<EdnListView> for Edn {
 }
 
 impl EdnListView {
-  pub fn new() -> EdnListView {
-    EdnListView(vec![])
-  }
-
   pub fn get_or_nil(&self, index: usize) -> Edn {
     if index >= self.0.len() {
       return Edn::Nil;
@@ -57,7 +53,7 @@ impl EdnListView {
 
 // Map
 
-#[derive(fmt::Debug, Clone)]
+#[derive(fmt::Debug, Clone, Default)]
 pub struct EdnMapView(pub HashMap<Edn, Edn>);
 
 impl TryFrom<Edn> for EdnMapView {
@@ -85,10 +81,6 @@ impl From<EdnMapView> for Edn {
 }
 
 impl EdnMapView {
-  pub fn new() -> EdnMapView {
-    EdnMapView(HashMap::new())
-  }
-
   /// regardless of key in string or tag
   pub fn get_or_nil(&self, key: &str) -> Edn {
     self
@@ -166,7 +158,7 @@ impl EdnRecordView {
 
 // Set
 
-#[derive(fmt::Debug, Clone)]
+#[derive(fmt::Debug, Clone, Default)]
 pub struct EdnSetView(pub HashSet<Edn>);
 
 impl TryFrom<Edn> for EdnSetView {
@@ -194,10 +186,6 @@ impl From<EdnSetView> for Edn {
 }
 
 impl EdnSetView {
-  pub fn new() -> EdnSetView {
-    EdnSetView(HashSet::new())
-  }
-
   pub fn contains(&self, x: &Edn) -> bool {
     self.0.contains(x)
   }
