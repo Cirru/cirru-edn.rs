@@ -370,31 +370,34 @@ impl Edn {
 
   pub fn view_list(&self) -> Result<EdnListView, String> {
     match self {
-      Edn::List(xs) => Ok(Edn::List(xs.to_owned()).into()),
-      Edn::Nil => Ok(Edn::List(vec![]).into()),
+      Edn::List(xs) => Ok(xs.to_owned().into()),
+      Edn::Nil => Ok(EdnListView::new()),
       a => Err(format!("failed to convert to list: {}", a)),
     }
   }
 
   pub fn view_map(&self) -> Result<EdnMapView, String> {
     match self {
-      Edn::Map(xs) => Ok(Edn::Map(xs.to_owned()).into()),
-      Edn::Nil => Ok(Edn::Map(HashMap::new()).into()),
+      Edn::Map(xs) => Ok(xs.to_owned().into()),
+      Edn::Nil => Ok(EdnMapView::new()),
       a => Err(format!("failed to convert to map: {}", a)),
     }
   }
 
   pub fn view_set(&self) -> Result<EdnSetView, String> {
     match self {
-      Edn::Set(xs) => Ok(Edn::Set(xs.to_owned()).into()),
-      Edn::Nil => Ok(Edn::Set(HashSet::new()).into()),
+      Edn::Set(xs) => Ok(xs.to_owned().into()),
+      Edn::Nil => Ok(EdnSetView::new()),
       a => Err(format!("failed to convert to set: {}", a)),
     }
   }
 
   pub fn view_record(&self) -> Result<EdnRecordView, String> {
     match self {
-      Edn::Record(tag, pairs) => Ok(Edn::Record(tag.to_owned(), pairs.to_owned()).into()),
+      Edn::Record(tag, pairs) => Ok(EdnRecordView {
+        tag: tag.to_owned(),
+        pairs: pairs.to_owned(),
+      }),
       a => Err(format!("failed to convert to record: {}", a)),
     }
   }

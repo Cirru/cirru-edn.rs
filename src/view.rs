@@ -1,4 +1,4 @@
-use crate::primes::Edn;
+use crate::{primes::Edn, EdnTag};
 
 use std::{
   collections::{HashMap, HashSet},
@@ -8,80 +8,99 @@ use std::{
 // List
 
 #[derive(fmt::Debug, Clone)]
-pub struct EdnListView {
-  data: Edn,
-}
+pub struct EdnListView(pub Vec<Edn>);
 
-impl From<Edn> for EdnListView {
-  fn from(data: Edn) -> Self {
-    EdnListView { data }
+impl TryFrom<Edn> for EdnListView {
+  type Error = String;
+
+  fn try_from(data: Edn) -> Result<Self, Self::Error> {
+    match data {
+      Edn::List(xs) => Ok(EdnListView(xs)),
+      Edn::Nil => Ok(EdnListView(vec![])),
+      a => Err(format!("data is not list: {}", a)),
+    }
   }
 }
+
+impl From<Vec<Edn>> for EdnListView {
+  fn from(xs: Vec<Edn>) -> EdnListView {
+    EdnListView(xs)
+  }
+}
+
 impl From<EdnListView> for Edn {
   fn from(x: EdnListView) -> Edn {
-    x.data
+    Edn::List(x.0)
   }
 }
 
 impl EdnListView {
-  pub fn read(self) -> Vec<Edn> {
-    match self.data {
-      Edn::List(xs) => xs,
-      a => unreachable!("data is not list: {}", a),
-    }
+  pub fn new() -> EdnListView {
+    EdnListView(vec![])
   }
 
   pub fn get_or_nil(&self, index: usize) -> Edn {
-    match &self.data {
-      Edn::List(xs) => {
-        if index < xs.len() {
-          xs[index].clone()
-        } else {
-          Edn::Nil
-        }
-      }
-      a => unreachable!("data is not list: {}", a),
+    if index >= self.0.len() {
+      return Edn::Nil;
     }
+    self.0[index].clone()
+  }
+
+  pub fn len(&self) -> usize {
+    self.0.len()
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.0.is_empty()
   }
 }
 
 // Map
 
 #[derive(fmt::Debug, Clone)]
-pub struct EdnMapView {
-  data: Edn,
+pub struct EdnMapView(pub HashMap<Edn, Edn>);
+
+impl TryFrom<Edn> for EdnMapView {
+  type Error = String;
+
+  fn try_from(data: Edn) -> Result<Self, Self::Error> {
+    match data {
+      Edn::Map(xs) => Ok(EdnMapView(xs)),
+      Edn::Nil => Ok(EdnMapView(HashMap::new())),
+      a => Err(format!("data is not map: {}", a)),
+    }
+  }
 }
 
-impl From<Edn> for EdnMapView {
-  fn from(data: Edn) -> Self {
-    EdnMapView { data }
+impl From<HashMap<Edn, Edn>> for EdnMapView {
+  fn from(xs: HashMap<Edn, Edn>) -> EdnMapView {
+    EdnMapView(xs)
   }
 }
 
 impl From<EdnMapView> for Edn {
   fn from(x: EdnMapView) -> Edn {
-    x.data
+    Edn::Map(x.0)
   }
 }
 
 impl EdnMapView {
-  pub fn read(self) -> HashMap<Edn, Edn> {
-    match self.data {
-      Edn::Map(xs) => xs,
-      a => unreachable!("data is not a map: {}", a),
-    }
+  pub fn new() -> EdnMapView {
+    EdnMapView(HashMap::new())
   }
 
   /// regardless of key in string or tag
   pub fn get_or_nil(&self, key: &str) -> Edn {
-    match &self.data {
-      Edn::Map(xs) => xs
-        .get(&Edn::str(key))
-        .cloned()
-        .or_else(|| xs.get(&Edn::tag(key)).cloned())
-        .unwrap_or(Edn::Nil),
-      a => unreachable!("data is not a map: {}", a),
-    }
+    self
+      .0
+      .get(&Edn::str(key))
+      .cloned()
+      .or_else(|| self.0.get(&Edn::tag(key)).cloned())
+      .unwrap_or(Edn::Nil)
+  }
+
+  pub fn contains_key(&self, key: &str) -> bool {
+    self.0.contains_key(&Edn::str(key)) || self.0.contains_key(&Edn::tag(key))
   }
 }
 
@@ -89,18 +108,30 @@ impl EdnMapView {
 
 #[derive(fmt::Debug, Clone)]
 pub struct EdnRecordView {
-  data: Edn,
+  pub tag: EdnTag,
+  pub pairs: Vec<(EdnTag, Edn)>,
 }
 
-impl From<Edn> for EdnRecordView {
-  fn from(data: Edn) -> Self {
-    EdnRecordView { data }
+impl TryFrom<Edn> for EdnRecordView {
+  type Error = String;
+
+  fn try_from(data: Edn) -> Result<Self, Self::Error> {
+    match data {
+      Edn::Record(t, pairs) => {
+        let mut buf = vec![];
+        for pair in pairs {
+          buf.push((pair.0, pair.1));
+        }
+        Ok(EdnRecordView { tag: t, pairs: buf })
+      }
+      a => Err(format!("data is not record: {}", a)),
+    }
   }
 }
 
 impl From<EdnRecordView> for Edn {
   fn from(x: EdnRecordView) -> Edn {
-    x.data
+    Edn::Record(x.tag, x.pairs)
   }
 }
 
@@ -109,46 +140,65 @@ impl Index<&str> for EdnRecordView {
   type Output = Edn;
 
   fn index(&self, index: &str) -> &Self::Output {
-    match &self.data {
-      Edn::Record(_t, pairs) => {
-        for pair in pairs {
-          if index == &*pair.0.to_str() {
-            return &pair.1;
-          }
-        }
-        unreachable!("missing key in record: {}", index)
+    for pair in self.pairs.iter() {
+      if index == &*pair.0.to_str() {
+        return &pair.1;
       }
-      a => unreachable!("data is not a record: {}", a),
     }
+    unreachable!("failed to get field: {}", index)
   }
 }
 
-impl EdnRecordView {}
+impl EdnRecordView {
+  pub fn new(tag: EdnTag) -> EdnRecordView {
+    EdnRecordView { tag, pairs: vec![] }
+  }
+
+  pub fn has_key(&self, key: &str) -> bool {
+    for pair in self.pairs.iter() {
+      if key == &*pair.0.to_str() {
+        return true;
+      }
+    }
+    false
+  }
+}
 
 // Set
 
 #[derive(fmt::Debug, Clone)]
-pub struct EdnSetView {
-  data: Edn,
+pub struct EdnSetView(pub HashSet<Edn>);
+
+impl TryFrom<Edn> for EdnSetView {
+  type Error = String;
+
+  fn try_from(data: Edn) -> Result<Self, Self::Error> {
+    match data {
+      Edn::Set(xs) => Ok(EdnSetView(xs)),
+      Edn::Nil => Ok(EdnSetView(HashSet::new())),
+      a => Err(format!("data is not set: {}", a)),
+    }
+  }
 }
 
-impl From<Edn> for EdnSetView {
-  fn from(data: Edn) -> Self {
-    EdnSetView { data }
+impl From<HashSet<Edn>> for EdnSetView {
+  fn from(xs: HashSet<Edn>) -> EdnSetView {
+    EdnSetView(xs)
   }
 }
 
 impl From<EdnSetView> for Edn {
   fn from(x: EdnSetView) -> Edn {
-    x.data
+    Edn::Set(x.0)
   }
 }
 
 impl EdnSetView {
-  pub fn read(self) -> HashSet<Edn> {
-    match self.data {
-      Edn::Set(xs) => xs,
-      a => unreachable!("failed to convert to set: {}", a),
-    }
+  pub fn new() -> EdnSetView {
+    EdnSetView(HashSet::new())
+  }
+
+  pub fn contains(&self, x: &Edn) -> bool {
+    self.0.contains(x)
   }
 }
