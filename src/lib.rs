@@ -1,5 +1,6 @@
 mod primes;
 mod tag;
+mod view;
 
 use std::cmp::Ordering::*;
 use std::collections::HashMap;
@@ -11,6 +12,7 @@ use cirru_parser::{Cirru, CirruWriterOptions};
 
 pub use primes::Edn;
 pub use tag::EdnTag;
+pub use view::{EdnListView, EdnMapView, EdnRecordView, EdnSetView};
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {

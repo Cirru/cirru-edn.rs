@@ -266,15 +266,18 @@ fn test_reader() -> Result<(), String> {
   assert!(Edn::Bool(true).read_bool()?);
   assert_eq!(Edn::str("a").read_string()?, String::from("a"));
   assert_eq!(Edn::sym("a").read_symbol_string()?, String::from("a"));
-  assert_eq!(Edn::tag("a").read_tag_string()?, String::from("a"));
+  assert_eq!(Edn::tag("a").read_tag_str()?, "a".into());
   assert!((Edn::Number(1.1).read_number()? - 1.1).abs() < f64::EPSILON);
-  assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(0)?, Edn::Number(1.0));
-  assert_eq!(Edn::List(vec![Edn::Number(1.0)]).vec_get(1)?, Edn::Nil);
+  assert_eq!(
+    Edn::List(vec![Edn::Number(1.0)]).view_list()?.get_or_nil(0),
+    Edn::Number(1.0)
+  );
+  assert_eq!(Edn::List(vec![Edn::Number(1.0)]).view_list()?.get_or_nil(1), Edn::Nil);
 
   let mut dict = HashMap::new();
   dict.insert(Edn::tag("k"), Edn::Number(1.1));
-  assert!((Edn::Map(dict.to_owned()).map_get("k")?.read_number()? - 1.1).abs() < f64::EPSILON);
-  assert_eq!(Edn::Map(dict).map_get("k2")?, Edn::Nil);
+  assert!((Edn::Map(dict.to_owned()).view_map()?.get_or_nil("k").read_number()? - 1.1).abs() < f64::EPSILON);
+  assert_eq!(Edn::Map(dict).view_map()?.get_or_nil("k2"), Edn::Nil);
   Ok(())
 }
 
