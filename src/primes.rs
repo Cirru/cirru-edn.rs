@@ -53,13 +53,11 @@ impl fmt::Display for Edn {
       Self::Tuple(tag, extra) => {
         let mut extra_str = String::new();
         for item in extra {
-          if !extra_str.is_empty() {
-            extra_str.push(' ');
-          }
+          extra_str.push(' ');
           extra_str.push_str(&item.to_string());
         }
 
-        f.write_fmt(format_args!("(:: {tag} {extra_str})"))
+        f.write_fmt(format_args!("(:: {tag}{extra_str})"))
       }
       Self::List(xs) => {
         f.write_str("([]")?;
@@ -83,10 +81,10 @@ impl fmt::Display for Edn {
         f.write_str(")")
       }
       Self::Record(name, entries) => {
-        f.write_fmt(format_args!("(%{{}} {}", name))?;
+        f.write_fmt(format_args!("(%{{}} :{}", name))?;
 
         for entry in entries {
-          f.write_fmt(format_args!("({} {})", Edn::Tag(entry.0.to_owned()), entry.1))?;
+          f.write_fmt(format_args!(" ({} {})", Edn::Tag(entry.0.to_owned()), entry.1))?;
         }
 
         f.write_str(")")
