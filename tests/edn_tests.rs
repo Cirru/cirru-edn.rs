@@ -186,6 +186,18 @@ const DICT_DEMO2: &str = r#"
     :d 4
 "#;
 
+const DICT_DEMO_COMMENT: &str = r#"
+{}
+  :b $ [] 2 3 4 (; "comment")
+  :a 1
+  ; "comment"
+  :c $ {}
+    :h $ {} (|b true) (|a 1)
+    :f :g
+    :e true
+    :d 4
+"#;
+
 #[test]
 fn demo_parsing() -> Result<(), String> {
   // println!("{:?}", cirru_edn::parse(RECORD_DEMO));
@@ -208,8 +220,10 @@ fn demo_parsing() -> Result<(), String> {
 
   let v1 = cirru_edn::parse(DICT_DEMO).unwrap();
   let v2 = cirru_edn::parse(DICT_DEMO2).unwrap();
+  let v_comment = cirru_edn::parse(DICT_DEMO_COMMENT).unwrap();
   assert_eq!(cirru_edn::parse(&cirru_edn::format(&v1, true)?), Ok(v1.clone()));
   assert_eq!(v1, v2);
+  assert_eq!(v2, v_comment);
 
   assert_eq!(
     cirru_edn::format(
