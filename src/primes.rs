@@ -1,3 +1,4 @@
+use bincode::{Decode, Encode};
 use std::{
   cmp::{Eq, Ordering, Ordering::*},
   collections::{HashMap, HashSet},
@@ -17,7 +18,7 @@ use crate::{
 
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
-#[derive(fmt::Debug, Clone)]
+#[derive(fmt::Debug, Clone, Decode, Encode)]
 pub enum Edn {
   Nil,
   Bool(bool),

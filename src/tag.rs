@@ -5,6 +5,7 @@
 //!
 //! TODO: need more optimizations
 
+use bincode::{Decode, Encode};
 use std::{
   cmp::Eq,
   cmp::Ordering,
@@ -13,7 +14,7 @@ use std::{
 };
 
 /// tags across whole program with strings reused
-#[derive(fmt::Debug, Clone)]
+#[derive(fmt::Debug, Clone, Decode, Encode)]
 pub struct EdnTag(
   /// which means there will be a limit of the count of all tags
   Box<str>,
