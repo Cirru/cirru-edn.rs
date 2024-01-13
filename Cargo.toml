@@ -14,8 +14,10 @@ readme = "README.md"
 
 [dependencies]
 cirru_parser = "0.1.x"
+# cirru_parser = { path = "../parser.rs" }
 hex = "0.4.3"
 lazy_static = "1.4.0"
+bincode = "2.0.0-rc.3"
 
 [dev-dependencies]
 criterion = "0.4.0"
