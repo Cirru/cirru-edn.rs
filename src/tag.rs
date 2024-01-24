@@ -5,19 +5,19 @@
 //!
 //! TODO: need more optimizations
 
-use bincode::{Decode, Encode};
 use std::{
   cmp::Eq,
   cmp::Ordering,
   fmt,
   hash::{Hash, Hasher},
+  rc::Rc,
 };
 
 /// tags across whole program with strings reused
-#[derive(fmt::Debug, Clone, Decode, Encode)]
+#[derive(fmt::Debug, Clone)]
 pub struct EdnTag(
   /// which means there will be a limit of the count of all tags
-  Box<str>,
+  Rc<str>,
 );
 
 impl fmt::Display for EdnTag {
@@ -38,7 +38,7 @@ impl Hash for EdnTag {
 
 impl From<&str> for EdnTag {
   fn from(s: &str) -> Self {
-    Self(Box::from(s))
+    Self(Rc::from(s))
   }
 }
 
@@ -49,7 +49,7 @@ impl EdnTag {
 
   /// get Box<str> from inside
   pub fn to_str(&self) -> Box<str> {
-    self.0.to_owned()
+    (*self.0).into()
   }
 }
 

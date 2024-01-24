@@ -1,4 +1,3 @@
-use bincode::{Decode, Encode};
 use std::{
   cmp::{Eq, Ordering, Ordering::*},
   collections::{HashMap, HashSet},
@@ -18,7 +17,7 @@ use crate::{
 
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
-#[derive(fmt::Debug, Clone, Decode, Encode)]
+#[derive(fmt::Debug, Clone)]
 pub enum Edn {
   Nil,
   Bool(bool),
@@ -94,7 +93,7 @@ impl fmt::Display for Edn {
         f.write_str("(buf")?;
         for b in buf {
           f.write_str(" ")?;
-          f.write_str(&hex::encode(vec![b.to_owned()]))?;
+          f.write_str(&hex::encode(vec![*b]))?;
         }
         f.write_str(")")
       }
@@ -346,14 +345,14 @@ impl Edn {
 
   pub fn read_bool(&self) -> Result<bool, String> {
     match self {
-      Edn::Bool(b) => Ok(b.to_owned()),
+      Edn::Bool(b) => Ok(*b),
       a => Err(format!("failed to convert to bool: {}", a)),
     }
   }
 
   pub fn read_number(&self) -> Result<f64, String> {
     match self {
-      Edn::Number(n) => Ok(n.to_owned()),
+      Edn::Number(n) => Ok(*n),
       a => Err(format!("failed to convert to number: {}", a)),
     }
   }
@@ -429,6 +428,18 @@ impl TryFrom<Edn> for String {
   fn try_from(x: Edn) -> Result<String, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).to_owned()),
+      Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
+      Edn::Tag(s) => Ok(s.to_string()),
+      a => Err(format!("failed to convert to string: {}", a)),
+    }
+  }
+}
+
+impl TryFrom<&Edn> for String {
+  type Error = String;
+  fn try_from(x: &Edn) -> Result<String, Self::Error> {
+    match x {
+      Edn::Str(s) => Ok((**s).to_owned()),
       Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
       Edn::Tag(s) => Ok(s.to_string()),
       a => Err(format!("failed to convert to string: {}", a)),
