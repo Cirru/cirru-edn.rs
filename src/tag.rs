@@ -10,14 +10,14 @@ use std::{
   cmp::Ordering,
   fmt,
   hash::{Hash, Hasher},
-  rc::Rc,
+  sync::Arc,
 };
 
 /// tags across whole program with strings reused
 #[derive(fmt::Debug, Clone)]
 pub struct EdnTag(
   /// which means there will be a limit of the count of all tags
-  Rc<str>,
+  Arc<str>,
 );
 
 impl fmt::Display for EdnTag {
@@ -38,7 +38,7 @@ impl Hash for EdnTag {
 
 impl From<&str> for EdnTag {
   fn from(s: &str) -> Self {
-    Self(Rc::from(s))
+    Self(Arc::from(s))
   }
 }
 
