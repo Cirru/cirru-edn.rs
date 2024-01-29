@@ -6,6 +6,7 @@ use std::cmp::Ordering::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::sync::Arc;
 use std::vec;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
@@ -92,7 +93,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 }
               }
               if let Some(x0) = tag {
-                Ok(Edn::Tuple(Box::new(x0), extra))
+                Ok(Edn::Tuple(Arc::new(x0), extra))
               } else {
                 Err(String::from("missing edn :: fst value"))
               }

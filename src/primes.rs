@@ -22,11 +22,11 @@ pub enum Edn {
   Nil,
   Bool(bool),
   Number(f64),
-  Symbol(Box<str>),
+  Symbol(Arc<str>),
   Tag(EdnTag),
-  Str(Box<str>), // name collision
+  Str(Arc<str>), // name collision
   Quote(Cirru),
-  Tuple(Box<Edn>, Vec<Edn>),
+  Tuple(Arc<Edn>, Vec<Edn>),
   List(Vec<Edn>),
   Set(HashSet<Edn>),
   Map(HashMap<Edn, Edn>),
@@ -285,20 +285,20 @@ impl PartialEq for Edn {
 /// Support reading from EDN
 impl Edn {
   /// create new string
-  pub fn str<T: Into<String>>(s: T) -> Self {
-    Edn::Str(s.into().into_boxed_str())
+  pub fn str<T: Into<Arc<str>>>(s: T) -> Self {
+    Edn::Str(s.into())
   }
   /// create new tag
   pub fn tag(s: &str) -> Self {
     Edn::Tag(EdnTag::new(s))
   }
   /// create new symbol
-  pub fn sym<T: Into<String>>(s: T) -> Self {
-    Edn::Symbol(s.into().into_boxed_str())
+  pub fn sym<T: Into<Arc<str>>>(s: T) -> Self {
+    Edn::Symbol(s.into())
   }
   /// create new tuple
   pub fn tuple(tag: Self, extra: Vec<Self>) -> Self {
-    Edn::Tuple(Box::new(tag), extra)
+    Edn::Tuple(Arc::new(tag), extra)
   }
   pub fn is_literal(&self) -> bool {
     matches!(
@@ -324,19 +324,19 @@ impl Edn {
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
-  pub fn read_str(&self) -> Result<Box<str>, String> {
+  pub fn read_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Str(s) => Ok(s.to_owned()),
       a => Err(format!("failed to convert to string: {}", a)),
     }
   }
-  pub fn read_symbol_str(&self) -> Result<Box<str>, String> {
+  pub fn read_symbol_str(&self) -> Result<Arc<str>, String> {
     match self {
-      Edn::Symbol(s) => Ok(s.to_owned()),
+      Edn::Symbol(s) => Ok(s.clone()),
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
-  pub fn read_tag_str(&self) -> Result<Box<str>, String> {
+  pub fn read_tag_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Tag(s) => Ok(s.to_str()),
       a => Err(format!("failed to convert to tag: {}", a)),
@@ -459,26 +459,15 @@ impl From<&str> for Edn {
   }
 }
 
-impl TryFrom<Edn> for Box<str> {
-  type Error = String;
-  fn try_from(x: Edn) -> Result<Self, Self::Error> {
-    match x {
-      Edn::Str(s) => Ok((*s).into()),
-      Edn::Tag(s) => Ok(s.to_str()),
-      a => Err(format!("failed to convert to box str: {}", a)),
-    }
-  }
-}
-
 impl From<Box<str>> for Edn {
   fn from(x: Box<str>) -> Self {
-    Edn::Str(x)
+    Edn::Str(x.into())
   }
 }
 
 impl From<&Box<str>> for Edn {
   fn from(x: &Box<str>) -> Self {
-    Edn::Str(x.to_owned())
+    Edn::Str((**x).into())
   }
 }
 
@@ -487,7 +476,7 @@ impl TryFrom<Edn> for Arc<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).into()),
-      Edn::Tag(s) => Ok((s.to_str()).into()),
+      Edn::Tag(s) => Ok(s.to_str()),
       a => Err(format!("failed to convert to arc str: {}", a)),
     }
   }

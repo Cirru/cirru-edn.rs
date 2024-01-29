@@ -47,8 +47,8 @@ impl EdnTag {
     EdnTag(s.into())
   }
 
-  /// get Box<str> from inside
-  pub fn to_str(&self) -> Box<str> {
+  /// get Arc<str> from inside
+  pub fn to_str(&self) -> Arc<str> {
     (*self.0).into()
   }
 }
