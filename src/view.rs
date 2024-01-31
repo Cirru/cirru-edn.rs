@@ -36,6 +36,11 @@ impl From<EdnListView> for Edn {
 }
 
 impl EdnListView {
+  /// get reference of element
+  pub fn get(&self, index: usize) -> Option<&Edn> {
+    self.0.get(index)
+  }
+
   pub fn get_or_nil(&self, index: usize) -> Edn {
     if index >= self.0.len() {
       return Edn::Nil;
@@ -87,6 +92,11 @@ impl From<EdnMapView> for Edn {
 }
 
 impl EdnMapView {
+  /// get reference of element
+  pub fn get(&self, key: &str) -> Option<&Edn> {
+    self.0.get(&Edn::str(key))
+  }
+
   /// regardless of key in string or tag
   pub fn get_or_nil(&self, key: &str) -> Edn {
     self
