@@ -159,7 +159,7 @@ impl Index<&str> for EdnRecordView {
 
   fn index(&self, index: &str) -> &Self::Output {
     for pair in self.pairs.iter() {
-      if index == &*pair.0.to_str() {
+      if index == &*pair.0.arc_str() {
         return &pair.1;
       }
     }
@@ -174,7 +174,7 @@ impl EdnRecordView {
 
   pub fn has_key(&self, key: &str) -> bool {
     for pair in self.pairs.iter() {
-      if key == &*pair.0.to_str() {
+      if key == &*pair.0.arc_str() {
         return true;
       }
     }

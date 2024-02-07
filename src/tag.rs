@@ -48,8 +48,13 @@ impl EdnTag {
   }
 
   /// get Arc<str> from inside
-  pub fn to_str(&self) -> Arc<str> {
+  pub fn arc_str(&self) -> Arc<str> {
     (*self.0).into()
+  }
+
+  /// use &str for comparison
+  pub fn ref_str(&self) -> &str {
+    &self.0
   }
 }
 

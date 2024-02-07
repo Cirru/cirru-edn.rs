@@ -338,7 +338,7 @@ impl Edn {
   }
   pub fn read_tag_str(&self) -> Result<Arc<str>, String> {
     match self {
-      Edn::Tag(s) => Ok(s.to_str()),
+      Edn::Tag(s) => Ok(s.arc_str()),
       a => Err(format!("failed to convert to tag: {}", a)),
     }
   }
@@ -476,7 +476,7 @@ impl TryFrom<Edn> for Arc<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).into()),
-      Edn::Tag(s) => Ok(s.to_str()),
+      Edn::Tag(s) => Ok(s.arc_str()),
       a => Err(format!("failed to convert to arc str: {}", a)),
     }
   }
