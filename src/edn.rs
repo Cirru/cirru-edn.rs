@@ -1,3 +1,9 @@
+mod list;
+mod map;
+mod record;
+mod set;
+mod tuple;
+
 use std::{
   cmp::{Eq, Ordering, Ordering::*},
   collections::{HashMap, HashSet},
@@ -10,10 +16,13 @@ use std::{
 
 use cirru_parser::Cirru;
 
-use crate::{
-  tag::EdnTag,
-  view::{EdnListView, EdnMapView, EdnRecordView, EdnSetView},
-};
+pub use self::tuple::EdnTupleView;
+pub use list::EdnListView;
+pub use map::EdnMapView;
+pub use record::EdnRecordView;
+pub use set::EdnSetView;
+
+use crate::tag::EdnTag;
 
 /// Data format based on subset of EDN, but in Cirru syntax.
 /// different parts are quote and Record.
@@ -26,11 +35,11 @@ pub enum Edn {
   Tag(EdnTag),
   Str(Arc<str>), // name collision
   Quote(Cirru),
-  Tuple(Arc<Edn>, Vec<Edn>),
-  List(Vec<Edn>),
-  Set(HashSet<Edn>),
-  Map(HashMap<Edn, Edn>),
-  Record(EdnTag, Vec<(EdnTag, Edn)>),
+  Tuple(EdnTupleView),
+  List(EdnListView),
+  Set(EdnSetView),
+  Map(EdnMapView),
+  Record(EdnRecordView),
   Buffer(Vec<u8>),
 }
 
@@ -50,7 +59,7 @@ impl fmt::Display for Edn {
         }
       }
       Self::Quote(v) => f.write_fmt(format_args!("(quote {})", v)),
-      Self::Tuple(tag, extra) => {
+      Self::Tuple(EdnTupleView { tag, extra }) => {
         let mut extra_str = String::new();
         for item in extra {
           extra_str.push(' ');
@@ -59,7 +68,7 @@ impl fmt::Display for Edn {
 
         f.write_fmt(format_args!("(:: {tag}{extra_str})"))
       }
-      Self::List(xs) => {
+      Self::List(EdnListView(xs)) => {
         f.write_str("([]")?;
         for x in xs {
           f.write_fmt(format_args!(" {}", x))?;
@@ -68,19 +77,22 @@ impl fmt::Display for Edn {
       }
       Self::Set(xs) => {
         f.write_str("(#{}")?;
-        for x in xs {
+        for x in &xs.0 {
           f.write_fmt(format_args!(" {}", x))?;
         }
         f.write_str(")")
       }
       Self::Map(xs) => {
         f.write_str("({}")?;
-        for (k, v) in xs {
+        for (k, v) in &xs.0 {
           f.write_fmt(format_args!(" ({} {})", k, v))?;
         }
         f.write_str(")")
       }
-      Self::Record(name, entries) => {
+      Self::Record(EdnRecordView {
+        tag: name,
+        pairs: entries,
+      }) => {
         f.write_fmt(format_args!("(%{{}} :{}", name))?;
 
         for entry in entries {
@@ -141,7 +153,7 @@ impl Hash for Edn {
         "quote:".hash(_state);
         v.hash(_state);
       }
-      Self::Tuple(pair, extra) => {
+      Self::Tuple(EdnTupleView { tag: pair, extra }) => {
         "tuple".hash(_state);
         pair.hash(_state);
         extra.hash(_state);
@@ -153,18 +165,21 @@ impl Hash for Edn {
       Self::Set(v) => {
         "set:".hash(_state);
         // TODO order for set is stable
-        for x in v {
+        for x in &v.0 {
           x.hash(_state)
         }
       }
       Self::Map(v) => {
         "map:".hash(_state);
         // TODO order for map is not stable
-        for x in v {
+        for x in &v.0 {
           x.hash(_state)
         }
       }
-      Self::Record(name, entries) => {
+      Self::Record(EdnRecordView {
+        tag: name,
+        pairs: entries,
+      }) => {
         "record:".hash(_state);
         name.hash(_state);
         entries.hash(_state);
@@ -218,7 +233,7 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
-      (Self::Tuple(a, extra1), Self::Tuple(b, extra2)) => a.cmp(b).then_with(|| extra1.cmp(extra2)),
+      (Self::Tuple(a), Self::Tuple(b)) => a.cmp(b),
       (Self::Tuple(..), _) => Less,
       (_, Self::Tuple(..)) => Greater,
 
@@ -246,9 +261,16 @@ impl Ord for Edn {
       (Self::Map(_), _) => Less,
       (_, Self::Map(_)) => Greater,
 
-      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => {
-        name1.cmp(name2).then_with(|| entries1.cmp(entries2))
-      }
+      (
+        Self::Record(EdnRecordView {
+          tag: name1,
+          pairs: entries1,
+        }),
+        Self::Record(EdnRecordView {
+          tag: name2,
+          pairs: entries2,
+        }),
+      ) => name1.cmp(name2).then_with(|| entries1.cmp(entries2)),
     }
   }
 }
@@ -271,12 +293,12 @@ impl PartialEq for Edn {
       (Self::Tag(a), Self::Tag(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
       (Self::Quote(a), Self::Quote(b)) => a == b,
-      (Self::Tuple(a, e1), Self::Tuple(b, e2)) => a == b && e1 == e2,
+      (Self::Tuple(a), Self::Tuple(b)) => a == b,
       (Self::List(a), Self::List(b)) => a == b,
       (Self::Buffer(a), Self::Buffer(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
-      (Self::Record(name1, entries1), Self::Record(name2, entries2)) => name1 == name2 && entries1 == entries2,
+      (Self::Record(a), Self::Record(b)) => a == b,
       (_, _) => false,
     }
   }
@@ -298,7 +320,10 @@ impl Edn {
   }
   /// create new tuple
   pub fn tuple(tag: Self, extra: Vec<Self>) -> Self {
-    Edn::Tuple(Arc::new(tag), extra)
+    Edn::Tuple(EdnTupleView {
+      tag: Arc::new(tag),
+      extra,
+    })
   }
   pub fn is_literal(&self) -> bool {
     matches!(
@@ -307,10 +332,13 @@ impl Edn {
     )
   }
   pub fn map_from_iter<T: IntoIterator<Item = (Edn, Edn)>>(pairs: T) -> Self {
-    Self::Map(HashMap::from_iter(pairs))
+    Self::Map(EdnMapView(HashMap::from_iter(pairs)))
   }
   pub fn record_from_pairs(tag: EdnTag, pairs: &[(EdnTag, Edn)]) -> Self {
-    Self::Record(tag, pairs.to_vec())
+    Self::Record(EdnRecordView {
+      tag,
+      pairs: pairs.to_vec(),
+    })
   }
   pub fn read_string(&self) -> Result<String, String> {
     match self {
@@ -338,7 +366,7 @@ impl Edn {
   }
   pub fn read_tag_str(&self) -> Result<Arc<str>, String> {
     match self {
-      Edn::Tag(s) => Ok(s.to_str()),
+      Edn::Tag(s) => Ok(s.arc_str()),
       a => Err(format!("failed to convert to tag: {}", a)),
     }
   }
@@ -366,37 +394,52 @@ impl Edn {
 
   // viewers
 
+  /// get List variant in struct
   pub fn view_list(&self) -> Result<EdnListView, String> {
     match self {
-      Edn::List(xs) => Ok(xs.to_owned().into()),
+      Edn::List(xs) => Ok((*xs).to_owned()),
       Edn::Nil => Ok(EdnListView::default()),
       a => Err(format!("failed to convert to list: {}", a)),
     }
   }
 
+  /// get Map variant in struct
   pub fn view_map(&self) -> Result<EdnMapView, String> {
     match self {
-      Edn::Map(xs) => Ok(xs.to_owned().into()),
+      Edn::Map(xs) => Ok(xs.to_owned()),
       Edn::Nil => Ok(EdnMapView::default()),
       a => Err(format!("failed to convert to map: {}", a)),
     }
   }
 
+  /// get Set variant in struct
   pub fn view_set(&self) -> Result<EdnSetView, String> {
     match self {
-      Edn::Set(xs) => Ok(xs.to_owned().into()),
+      Edn::Set(xs) => Ok(xs.to_owned()),
       Edn::Nil => Ok(EdnSetView::default()),
       a => Err(format!("failed to convert to set: {}", a)),
     }
   }
 
+  /// get Record variant in struct
   pub fn view_record(&self) -> Result<EdnRecordView, String> {
     match self {
-      Edn::Record(tag, pairs) => Ok(EdnRecordView {
+      Edn::Record(EdnRecordView { tag, pairs }) => Ok(EdnRecordView {
         tag: tag.to_owned(),
         pairs: pairs.to_owned(),
       }),
       a => Err(format!("failed to convert to record: {}", a)),
+    }
+  }
+
+  /// get Tuple variant in struct
+  pub fn view_tuple(&self) -> Result<EdnTupleView, String> {
+    match self {
+      Edn::Tuple(EdnTupleView { tag, extra }) => Ok(EdnTupleView {
+        tag: tag.to_owned(),
+        extra: extra.to_owned(),
+      }),
+      a => Err(format!("failed to convert to tuple: {}", a)),
     }
   }
 }
@@ -476,7 +519,7 @@ impl TryFrom<Edn> for Arc<str> {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).into()),
-      Edn::Tag(s) => Ok(s.to_str()),
+      Edn::Tag(s) => Ok(s.arc_str()),
       a => Err(format!("failed to convert to arc str: {}", a)),
     }
   }
@@ -669,7 +712,7 @@ where
     match x {
       Edn::List(xs) => {
         let mut ys = Vec::new();
-        for x in xs {
+        for x in xs.0 {
           let y = x.try_into()?;
           ys.push(y);
         }
@@ -722,7 +765,7 @@ where
   T: Into<Edn>,
 {
   fn from(xs: Vec<T>) -> Self {
-    Edn::List(xs.into_iter().map(|x| x.into()).collect())
+    Edn::List(EdnListView(xs.into_iter().map(|x| x.into()).collect()))
   }
 }
 
@@ -731,7 +774,7 @@ where
   T: Into<Edn> + Clone,
 {
   fn from(xs: &'a Vec<&'a T>) -> Self {
-    Edn::List(xs.iter().map(|x| (*x).to_owned().into()).collect())
+    Edn::List(EdnListView(xs.iter().map(|x| (*x).to_owned().into()).collect()))
   }
 }
 
@@ -740,7 +783,7 @@ where
   T: Into<Edn> + Clone,
 {
   fn from(xs: &'a [&'a T]) -> Self {
-    Edn::List(xs.iter().map(|x| (*x).to_owned().into()).collect())
+    Edn::List(EdnListView(xs.iter().map(|x| (*x).to_owned().into()).collect()))
   }
 }
 
@@ -753,7 +796,7 @@ where
     match x {
       Edn::Set(xs) => {
         let mut ys = HashSet::new();
-        for x in xs {
+        for x in xs.0 {
           let y = x.try_into()?;
           ys.insert(y);
         }
@@ -770,7 +813,7 @@ where
   T: Into<Edn>,
 {
   fn from(xs: HashSet<T>) -> Self {
-    Edn::Set(xs.into_iter().map(|x| x.into()).collect())
+    Edn::Set(EdnSetView(xs.into_iter().map(|x| x.into()).collect()))
   }
 }
 
@@ -779,7 +822,7 @@ where
   T: Into<Edn> + Clone,
 {
   fn from(xs: &'a HashSet<&'a T>) -> Self {
-    Edn::Set(xs.iter().map(|x| (*x).to_owned().into()).collect())
+    Edn::Set(EdnSetView(xs.iter().map(|x| (*x).to_owned().into()).collect()))
   }
 }
 
@@ -793,9 +836,9 @@ where
     match x {
       Edn::Map(xs) => {
         let mut ys = HashMap::new();
-        for (k, v) in xs {
-          let k = k.try_into()?;
-          let v = v.try_into()?;
+        for (k, v) in &xs.0 {
+          let k = k.to_owned().try_into()?;
+          let v = v.to_owned().try_into()?;
           ys.insert(k, v);
         }
         Ok(ys)
@@ -812,7 +855,7 @@ where
   K: Into<Edn>,
 {
   fn from(xs: HashMap<K, T>) -> Self {
-    Edn::Map(xs.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
+    Edn::Map(EdnMapView(xs.into_iter().map(|(k, v)| (k.into(), v.into())).collect()))
   }
 }
 
@@ -822,10 +865,16 @@ where
   K: Into<Edn> + Clone,
 {
   fn from(xs: &'a HashMap<&'a K, &'a T>) -> Self {
-    Edn::Map(
+    Edn::Map(EdnMapView(
       xs.iter()
         .map(|(k, v)| ((*k).to_owned().into(), (*v).to_owned().into()))
         .collect(),
-    )
+    ))
+  }
+}
+
+impl From<(Arc<Edn>, Vec<Edn>)> for Edn {
+  fn from((tag, extra): (Arc<Edn>, Vec<Edn>)) -> Edn {
+    Edn::Tuple(EdnTupleView { tag, extra })
   }
 }

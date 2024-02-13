@@ -3,7 +3,7 @@ extern crate cirru_edn;
 use std::convert::TryFrom;
 use std::{collections::HashMap, convert::TryInto, iter::FromIterator};
 
-use cirru_edn::{Edn, EdnTag};
+use cirru_edn::{Edn, EdnMapView, EdnTag};
 
 #[derive(Debug, Clone, PartialEq)]
 struct Cat {
@@ -39,19 +39,19 @@ impl TryFrom<Edn> for Cat {
 
 impl From<Cat> for Edn {
   fn from(x: Cat) -> Edn {
-    Edn::Map(HashMap::from_iter([
+    Edn::Map(EdnMapView(HashMap::from_iter([
       ("name".into(), x.name.into()),
       ("category".into(), x.category.into()),
       ("weight".into(), x.weight.into()),
       ("skills".into(), x.skills.into()),
       ("counts".into(), x.counts.into()),
       ("owner".into(), x.owner.into()),
-    ]))
+    ])))
   }
 }
 
 fn main() -> Result<(), String> {
-  let data: Edn = Edn::Map(HashMap::from_iter([
+  let data: Edn = Edn::Map(EdnMapView(HashMap::from_iter([
     ("name".into(), Edn::str("Kii")),
     ("category".into(), Edn::tag("ying")),
     // ("weight".into(), Edn::Number(1.0)),
@@ -61,11 +61,11 @@ fn main() -> Result<(), String> {
     // ),
     (
       "counts".into(),
-      Edn::Map(HashMap::from_iter([("a".into(), Edn::Number(1.))])),
+      Edn::from(HashMap::from_iter([(Edn::from("a"), Edn::Number(1.))])),
     ),
     // ("owner".into(), Edn::str("Kii")),
     ("owner".into(), Edn::Nil),
-  ]));
+  ])));
   let cat: Cat = data.try_into()?;
   println!("new {:?}", cat);
   assert_eq!(cat.name, "Kii");

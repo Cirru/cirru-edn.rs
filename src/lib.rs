@@ -1,19 +1,16 @@
-mod primes;
+mod edn;
 mod tag;
-mod view;
 
 use std::cmp::Ordering::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::sync::Arc;
 use std::vec;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 
-pub use primes::Edn;
+pub use edn::{Edn, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView};
 pub use tag::EdnTag;
-pub use view::{EdnListView, EdnMapView, EdnRecordView, EdnSetView};
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {
@@ -93,7 +90,10 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 }
               }
               if let Some(x0) = tag {
-                Ok(Edn::Tuple(Arc::new(x0), extra))
+                Ok(Edn::Tuple(EdnTupleView {
+                  tag: Arc::new(x0),
+                  extra,
+                }))
               } else {
                 Err(String::from("missing edn :: fst value"))
               }
@@ -109,7 +109,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   Err(v) => return Err(v),
                 }
               }
-              Ok(Edn::List(ys))
+              Ok(Edn::List(EdnListView(ys)))
             }
             "#{}" => {
               let mut ys: HashSet<Edn> = HashSet::new();
@@ -124,7 +124,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   Err(v) => return Err(v),
                 }
               }
-              Ok(Edn::Set(ys))
+              Ok(Edn::Set(EdnSetView(ys)))
             }
             "{}" => {
               let mut zs: HashMap<Edn, Edn> = HashMap::new();
@@ -147,7 +147,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   }
                 }
               }
-              Ok(Edn::Map(zs))
+              Ok(Edn::Map(EdnMapView(zs)))
             }
             "%{}" => {
               if xs.len() >= 3 {
@@ -183,7 +183,10 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 if entries.is_empty() {
                   return Err(String::from("empty record is invalid"));
                 }
-                Ok(Edn::Record(name, entries))
+                Ok(Edn::Record(EdnRecordView {
+                  tag: name,
+                  pairs: entries,
+                }))
               } else {
                 Err(String::from("insufficient items for edn record"))
               }
@@ -244,7 +247,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::List(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push("[]".into());
-      for x in xs {
+      for x in &xs.0 {
         ys.push(assemble_cirru_node(x));
       }
       Cirru::List(ys)
@@ -252,7 +255,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Set(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push("#{}".into());
-      let mut items = xs.iter().collect::<Vec<_>>();
+      let mut items = xs.0.iter().collect::<Vec<_>>();
       items.sort();
       for x in items {
         ys.push(assemble_cirru_node(x));
@@ -262,7 +265,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Map(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push("{}".into());
-      let mut items = Vec::from_iter(xs.iter());
+      let mut items = Vec::from_iter(xs.0.iter());
       items.sort_by(|(a1, a2): &(&Edn, &Edn), (b1, b2): &(&Edn, &Edn)| {
         match (a1.is_literal(), b1.is_literal(), a2.is_literal(), b2.is_literal()) {
           (true, true, true, false) => Less,
@@ -277,7 +280,10 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       }
       Cirru::List(ys)
     }
-    Edn::Record(name, entries) => {
+    Edn::Record(EdnRecordView {
+      tag: name,
+      pairs: entries,
+    }) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(entries.len() + 2);
       ys.push("%{}".into());
       ys.push(format!(":{}", name).into());
@@ -297,7 +303,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 
       Cirru::List(ys)
     }
-    Edn::Tuple(tag, extra) => {
+    Edn::Tuple(EdnTupleView { tag, extra }) => {
       let mut ys: Vec<Cirru> = vec!["::".into(), assemble_cirru_node(tag)];
       for item in extra {
         ys.push(assemble_cirru_node(item))

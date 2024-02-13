@@ -11,13 +11,13 @@ fn building_record() {
   record.insert("c", Edn::Number(2.0));
 
   assert_eq!(
-    Edn::Record(
-      EdnTag::new("a"),
-      vec![
+    Edn::Record(EdnRecordView {
+      tag: EdnTag::new("a"),
+      pairs: vec![
         (EdnTag::new("b"), Edn::Number(1.0)),
         (EdnTag::new("c"), Edn::Number(2.0)),
       ],
-    ),
+    }),
     Edn::from(record)
   );
 }
@@ -58,7 +58,7 @@ fn building_list() {
   list.push(Edn::Number(1.0));
   list.push(Edn::Number(2.0));
 
-  assert_eq!(Edn::List(vec![Edn::Number(1.0), Edn::Number(2.0)]), Edn::from(list));
+  assert_eq!(Edn::from(vec![Edn::Number(1.0), Edn::Number(2.0)]), Edn::List(list));
 }
 
 #[test]
@@ -70,5 +70,5 @@ fn building_set() {
   let mut s = HashSet::new();
   s.insert(Edn::Number(1.0));
   s.insert(Edn::Number(2.0));
-  assert_eq!(Edn::Set(s), Edn::from(set));
+  assert_eq!(Edn::from(s), Edn::from(set));
 }
