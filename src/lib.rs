@@ -238,11 +238,11 @@ fn is_comment(node: &Cirru) -> bool {
 fn assemble_cirru_node(data: &Edn) -> Cirru {
   match data {
     Edn::Nil => "nil".into(),
-    Edn::Bool(v) => v.to_string().into(),
-    Edn::Number(n) => n.to_string().into(),
-    Edn::Symbol(s) => format!("'{}", s).into(),
-    Edn::Tag(s) => format!(":{}", s).into(),
-    Edn::Str(s) => format!("|{}", s).into(),
+    Edn::Bool(v) => v.to_string().as_str().into(),
+    Edn::Number(n) => n.to_string().as_str().into(),
+    Edn::Symbol(s) => format!("'{}", s).as_str().into(),
+    Edn::Tag(s) => format!(":{}", s).as_str().into(),
+    Edn::Str(s) => format!("|{}", s).as_str().into(),
     Edn::Quote(v) => Cirru::List(vec!["quote".into(), (*v).to_owned()]),
     Edn::List(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
@@ -286,7 +286,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     }) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(entries.len() + 2);
       ys.push("%{}".into());
-      ys.push(format!(":{}", name).into());
+      ys.push(format!(":{}", name).as_str().into());
       let mut ordered_entries = entries.to_owned();
       ordered_entries.sort_by(|(_a1, a2), (_b1, b2)| match (a2.is_literal(), b2.is_literal()) {
         (true, false) => Less,
@@ -296,7 +296,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       for entry in ordered_entries {
         let v = &entry.1;
         ys.push(Cirru::List(vec![
-          format!(":{}", entry.0).into(),
+          format!(":{}", entry.0).as_str().into(),
           assemble_cirru_node(v),
         ]));
       }
@@ -314,7 +314,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       let mut ys: Vec<Cirru> = Vec::with_capacity(buf.len() + 1);
       ys.push("buf".into());
       for b in buf {
-        ys.push(hex::encode(vec![b.to_owned()]).into());
+        ys.push(hex::encode(vec![b.to_owned()]).as_str().into());
       }
       Cirru::List(ys)
     }

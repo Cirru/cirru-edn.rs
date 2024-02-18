@@ -222,7 +222,7 @@ fn demo_parsing() -> Result<(), String> {
   let v1 = cirru_edn::parse(DICT_DEMO).unwrap();
   let v2 = cirru_edn::parse(DICT_DEMO2).unwrap();
   let v_comment = cirru_edn::parse(DICT_DEMO_COMMENT).unwrap();
-  assert_eq!(cirru_edn::parse(&cirru_edn::format(&v1, true)?), Ok(v1.clone()));
+  assert_eq!(cirru_edn::parse(&cirru_edn::format(&v1, true)?), Ok(v1.to_owned()));
   assert_eq!(v1, v2);
   assert_eq!(v2, v_comment);
 
