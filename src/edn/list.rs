@@ -26,7 +26,7 @@ impl From<&[Edn]> for EdnListView {
 
 impl From<&Vec<Edn>> for EdnListView {
   fn from(xs: &Vec<Edn>) -> EdnListView {
-    EdnListView(xs.clone())
+    EdnListView(xs.to_owned())
   }
 }
 
@@ -56,7 +56,7 @@ impl EdnListView {
     if index >= self.0.len() {
       return Edn::Nil;
     }
-    self.0[index].clone()
+    self.0[index].to_owned()
   }
 
   pub fn len(&self) -> usize {

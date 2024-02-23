@@ -360,7 +360,7 @@ impl Edn {
   }
   pub fn read_symbol_str(&self) -> Result<Arc<str>, String> {
     match self {
-      Edn::Symbol(s) => Ok(s.clone()),
+      Edn::Symbol(s) => Ok(s.to_owned()),
       a => Err(format!("failed to convert to symbol: {}", a)),
     }
   }
