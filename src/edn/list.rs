@@ -46,6 +46,28 @@ impl From<EdnListView> for Edn {
   }
 }
 
+pub struct EdnListViewIter<'a> {
+  xs: &'a [Edn],
+  idx: usize,
+}
+
+impl<'a> Iterator for EdnListViewIter<'a> {
+  type Item = &'a Edn;
+  fn next(&mut self) -> Option<Self::Item> {
+    let ret = self.xs.get(self.idx);
+    self.idx += 1;
+    ret
+  }
+}
+
+impl<'a> IntoIterator for &'a EdnListView {
+  type Item = &'a Edn;
+  type IntoIter = EdnListViewIter<'a>;
+  fn into_iter(self) -> Self::IntoIter {
+    self.iter()
+  }
+}
+
 impl EdnListView {
   /// get reference of element
   pub fn get(&self, index: usize) -> Option<&Edn> {
@@ -69,5 +91,9 @@ impl EdnListView {
 
   pub fn push(&mut self, x: Edn) {
     self.0.push(x)
+  }
+
+  pub fn iter(&self) -> EdnListViewIter {
+    EdnListViewIter { xs: &self.0, idx: 0 }
   }
 }

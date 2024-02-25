@@ -637,6 +637,12 @@ impl From<&u8> for Edn {
   }
 }
 
+impl From<usize> for Edn {
+  fn from(x: usize) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
 impl TryFrom<Edn> for u8 {
   type Error = String;
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
@@ -662,6 +668,12 @@ impl From<i8> for Edn {
 impl From<&i8> for Edn {
   fn from(x: &i8) -> Self {
     Edn::Number(*x as f64)
+  }
+}
+
+impl From<&[Edn]> for Edn {
+  fn from(xs: &[Edn]) -> Self {
+    Edn::List(EdnListView(xs.to_vec()))
   }
 }
 

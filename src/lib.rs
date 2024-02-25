@@ -247,7 +247,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::List(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
       ys.push("[]".into());
-      for x in &xs.0 {
+      for x in xs {
         ys.push(assemble_cirru_node(x));
       }
       Cirru::List(ys)
