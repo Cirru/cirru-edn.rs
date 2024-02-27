@@ -39,9 +39,18 @@ impl From<EdnMapView> for Edn {
 }
 
 impl EdnMapView {
-  /// get reference of element
-  pub fn get(&self, key: &str) -> Option<&Edn> {
+  /// get by tag
+  pub fn tag_get(&self, key: &str) -> Option<&Edn> {
+    self.0.get(&Edn::Tag(EdnTag::from(key)))
+  }
+  /// get by str
+  pub fn str_get(&self, key: &str) -> Option<&Edn> {
     self.0.get(&Edn::str(key))
+  }
+
+  /// get reference of element
+  pub fn get(&self, key: &Edn) -> Option<&Edn> {
+    self.0.get(key)
   }
 
   /// regardless of key in string or tag

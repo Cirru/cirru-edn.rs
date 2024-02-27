@@ -375,3 +375,23 @@ fn test_format_record() -> Result<(), String> {
 
   Ok(())
 }
+
+#[test]
+fn test_iter() -> Result<(), String> {
+  let xs = vec![
+    Edn::from(1u8),
+    2u8.into(),
+    3u8.into(),
+    4u8.into(),
+    5u8.into(),
+    6u8.into(),
+    7u8.into(),
+    8u8.into(),
+    9u8.into(),
+  ];
+  let data = Edn::from(xs);
+  for item in &data.view_list()? {
+    println!("{:?}", item);
+  }
+  Ok(())
+}

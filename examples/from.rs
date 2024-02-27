@@ -19,7 +19,7 @@ impl TryFrom<Edn> for Cat {
   type Error = String;
   fn try_from(value: Edn) -> Result<Self, Self::Error> {
     let c = Cat {
-      name: value.view_map()?.get("name").unwrap_or(&Edn::Nil).try_into()?,
+      name: value.view_map()?.str_get("name").unwrap_or(&Edn::Nil).try_into()?,
       category: value.view_map()?.get_or_nil("category").try_into()?,
       weight: value.view_map()?.get_or_nil("weight").try_into()?,
       skills: value.view_map()?.get_or_nil("skills").try_into()?,
