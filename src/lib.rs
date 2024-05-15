@@ -9,7 +9,7 @@ use std::vec;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 
-pub use edn::{Edn, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView};
+pub use edn::{Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView};
 pub use tag::EdnTag;
 
 /// parse Cirru code into data
@@ -318,6 +318,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       }
       Cirru::List(ys)
     }
+    Edn::AnyRef(..) => unreachable!("AnyRef is not serializable"),
   }
 }
 

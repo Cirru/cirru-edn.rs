@@ -5,12 +5,17 @@ mod set;
 mod tuple;
 
 use std::{
-  cmp::{Eq, Ordering, Ordering::*},
+  any::Any,
+  cmp::{
+    Eq,
+    Ordering::{self, *},
+  },
   collections::{HashMap, HashSet},
   convert::{TryFrom, TryInto},
   fmt,
   hash::{Hash, Hasher},
   iter::FromIterator,
+  ptr,
   sync::Arc,
 };
 
@@ -41,7 +46,18 @@ pub enum Edn {
   Map(EdnMapView),
   Record(EdnRecordView),
   Buffer(Vec<u8>),
+  /// reference to Rust data, not interpretable in Calcit
+  AnyRef(EdnAnyRef),
 }
+
+/// Just a reference holding some Data in Rust, to use in Rust and pass in Calcit
+#[derive(Debug, Clone)]
+pub struct EdnAnyRef(pub Arc<dyn Any>);
+
+/// cannot predict behavior yet, but to bypass type checking
+unsafe impl Send for EdnAnyRef {}
+/// cannot predict behavior yet, but to bypass type checking
+unsafe impl Sync for EdnAnyRef {}
 
 impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -109,6 +125,7 @@ impl fmt::Display for Edn {
         }
         f.write_str(")")
       }
+      Self::AnyRef(r) => f.write_str(&format!("(any-ref {:?})", r)),
     }
   }
 }
@@ -189,6 +206,10 @@ impl Hash for Edn {
         for b in buf {
           b.hash(_state);
         }
+      }
+      Self::AnyRef(h) => {
+        "any-ref:".hash(_state);
+        ptr::hash(h, _state);
       }
     }
   }
@@ -271,6 +292,16 @@ impl Ord for Edn {
           pairs: entries2,
         }),
       ) => name1.cmp(name2).then_with(|| entries1.cmp(entries2)),
+
+      (Self::Record(..), _) => Less,
+      (_, Self::Record(..)) => Greater,
+      (Self::AnyRef(a), Self::AnyRef(b)) => {
+        if ptr::eq(a, b) {
+          Equal
+        } else {
+          unreachable!("anyref are not cmp ed {:?} {:?}", a, b)
+        }
+      }
     }
   }
 }
