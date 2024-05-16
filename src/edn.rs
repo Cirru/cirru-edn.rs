@@ -125,7 +125,7 @@ impl fmt::Display for Edn {
         }
         f.write_str(")")
       }
-      Self::AnyRef(r) => f.write_str(&format!("(any-ref {:?})", r)),
+      Self::AnyRef(_r) => f.write_str("(any-ref ...)"),
     }
   }
 }
