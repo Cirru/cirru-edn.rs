@@ -6,6 +6,7 @@ mod tuple;
 
 use std::{
   any::Any,
+  cell::RefCell,
   cmp::{
     Eq,
     Ordering::{self, *},
@@ -52,7 +53,7 @@ pub enum Edn {
 
 /// Just a reference holding some Data in Rust, to use in Rust and pass in Calcit
 #[derive(Debug, Clone)]
-pub struct EdnAnyRef(pub Arc<dyn Any>);
+pub struct EdnAnyRef(pub Arc<RefCell<dyn Any>>);
 
 /// cannot predict behavior yet, but to bypass type checking
 unsafe impl Send for EdnAnyRef {}
