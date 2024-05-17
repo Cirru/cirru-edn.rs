@@ -60,6 +60,17 @@ unsafe impl Send for EdnAnyRef {}
 /// cannot predict behavior yet, but to bypass type checking
 unsafe impl Sync for EdnAnyRef {}
 
+impl PartialEq for EdnAnyRef {
+  fn eq(&self, other: &Self) -> bool {
+    let a = &self.0.as_ptr();
+    let b = &other.0.as_ptr();
+    a == b
+    // unstable API not used yet
+    // std::ptr::addr_eq(a, b)
+  }
+}
+impl Eq for EdnAnyRef {}
+
 impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
