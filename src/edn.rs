@@ -62,13 +62,12 @@ unsafe impl Sync for EdnAnyRef {}
 
 impl PartialEq for EdnAnyRef {
   fn eq(&self, other: &Self) -> bool {
-    let a = &self.0.as_ptr();
-    let b = &other.0.as_ptr();
-    a == b
-    // unstable API not used yet
-    // std::ptr::addr_eq(a, b)
+    let a = self.0.as_ptr();
+    let b = other.0.as_ptr();
+    std::ptr::addr_eq(a, b)
   }
 }
+
 impl Eq for EdnAnyRef {}
 
 impl fmt::Display for Edn {
@@ -342,6 +341,7 @@ impl PartialEq for Edn {
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
       (Self::Record(a), Self::Record(b)) => a == b,
+      (Self::AnyRef(a), Self::AnyRef(b)) => a == b,
       (_, _) => false,
     }
   }
