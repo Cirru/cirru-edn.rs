@@ -6,7 +6,6 @@ mod tuple;
 
 use std::{
   any::Any,
-  cell::RefCell,
   cmp::{
     Eq,
     Ordering::{self, *},
@@ -17,7 +16,7 @@ use std::{
   hash::{Hash, Hasher},
   iter::FromIterator,
   ptr,
-  sync::Arc,
+  sync::{Arc, RwLock},
 };
 
 use cirru_parser::Cirru;
@@ -53,7 +52,7 @@ pub enum Edn {
 
 /// Just a reference holding some Data in Rust, to use in Rust and pass in Calcit
 #[derive(Debug, Clone)]
-pub struct EdnAnyRef(pub Arc<RefCell<dyn Any>>);
+pub struct EdnAnyRef(pub Arc<RwLock<dyn Any>>);
 
 /// cannot predict behavior yet, but to bypass type checking
 unsafe impl Send for EdnAnyRef {}
@@ -62,9 +61,7 @@ unsafe impl Sync for EdnAnyRef {}
 
 impl PartialEq for EdnAnyRef {
   fn eq(&self, other: &Self) -> bool {
-    let a = self.0.as_ptr();
-    let b = other.0.as_ptr();
-    std::ptr::addr_eq(a, b)
+    std::ptr::addr_eq(&self, &other)
   }
 }
 
