@@ -1,3 +1,4 @@
+mod any_ref;
 mod list;
 mod map;
 mod record;
@@ -16,12 +17,13 @@ use std::{
   hash::{Hash, Hasher},
   iter::FromIterator,
   ptr,
-  sync::{Arc, RwLock},
+  sync::Arc,
 };
 
 use cirru_parser::Cirru;
 
 pub use self::tuple::EdnTupleView;
+pub use any_ref::EdnAnyRef;
 pub use list::EdnListView;
 pub use map::EdnMapView;
 pub use record::EdnRecordView;
@@ -49,23 +51,6 @@ pub enum Edn {
   /// reference to Rust data, not interpretable in Calcit
   AnyRef(EdnAnyRef),
 }
-
-/// Just a reference holding some Data in Rust, to use in Rust and pass in Calcit
-#[derive(Debug, Clone)]
-pub struct EdnAnyRef(pub Arc<RwLock<dyn Any>>);
-
-/// cannot predict behavior yet, but to bypass type checking
-unsafe impl Send for EdnAnyRef {}
-/// cannot predict behavior yet, but to bypass type checking
-unsafe impl Sync for EdnAnyRef {}
-
-impl PartialEq for EdnAnyRef {
-  fn eq(&self, other: &Self) -> bool {
-    std::ptr::addr_eq(&self, &other)
-  }
-}
-
-impl Eq for EdnAnyRef {}
 
 impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -351,8 +336,8 @@ impl Edn {
     Edn::Str(s.into())
   }
   /// create new tag
-  pub fn tag(s: &str) -> Self {
-    Edn::Tag(EdnTag::new(s))
+  pub fn tag<T: Into<Arc<str>>>(s: T) -> Self {
+    Edn::Tag(EdnTag::new(s.into()))
   }
   /// create new symbol
   pub fn sym<T: Into<Arc<str>>>(s: T) -> Self {
@@ -364,6 +349,10 @@ impl Edn {
       tag: Arc::new(tag),
       extra,
     })
+  }
+  /// create any-ref
+  pub fn any_ref<T: ToOwned + Any>(d: T) -> Self {
+    Edn::AnyRef(EdnAnyRef::new(d))
   }
   pub fn is_literal(&self) -> bool {
     matches!(

@@ -43,7 +43,7 @@ impl From<&str> for EdnTag {
 }
 
 impl EdnTag {
-  pub fn new(s: &str) -> Self {
+  pub fn new<T: Into<Arc<str>>>(s: T) -> Self {
     EdnTag(s.into())
   }
 
