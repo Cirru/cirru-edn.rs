@@ -17,7 +17,7 @@ use std::{
 #[derive(fmt::Debug, Clone)]
 pub struct EdnTag(
   /// which means there will be a limit of the count of all tags
-  Arc<str>,
+  pub Arc<str>,
 );
 
 impl fmt::Display for EdnTag {
