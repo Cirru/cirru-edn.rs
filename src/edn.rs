@@ -1,3 +1,4 @@
+mod any_ref;
 mod list;
 mod map;
 mod record;
@@ -5,18 +6,24 @@ mod set;
 mod tuple;
 
 use std::{
-  cmp::{Eq, Ordering, Ordering::*},
+  any::Any,
+  cmp::{
+    Eq,
+    Ordering::{self, *},
+  },
   collections::{HashMap, HashSet},
   convert::{TryFrom, TryInto},
   fmt,
   hash::{Hash, Hasher},
   iter::FromIterator,
+  ptr,
   sync::Arc,
 };
 
 use cirru_parser::Cirru;
 
 pub use self::tuple::EdnTupleView;
+pub use any_ref::EdnAnyRef;
 pub use list::EdnListView;
 pub use map::EdnMapView;
 pub use record::EdnRecordView;
@@ -41,6 +48,8 @@ pub enum Edn {
   Map(EdnMapView),
   Record(EdnRecordView),
   Buffer(Vec<u8>),
+  /// reference to Rust data, not interpretable in Calcit
+  AnyRef(EdnAnyRef),
 }
 
 impl fmt::Display for Edn {
@@ -109,6 +118,7 @@ impl fmt::Display for Edn {
         }
         f.write_str(")")
       }
+      Self::AnyRef(_r) => f.write_str("(any-ref ...)"),
     }
   }
 }
@@ -189,6 +199,10 @@ impl Hash for Edn {
         for b in buf {
           b.hash(_state);
         }
+      }
+      Self::AnyRef(h) => {
+        "any-ref:".hash(_state);
+        ptr::hash(h, _state);
       }
     }
   }
@@ -271,6 +285,16 @@ impl Ord for Edn {
           pairs: entries2,
         }),
       ) => name1.cmp(name2).then_with(|| entries1.cmp(entries2)),
+
+      (Self::Record(..), _) => Less,
+      (_, Self::Record(..)) => Greater,
+      (Self::AnyRef(a), Self::AnyRef(b)) => {
+        if ptr::eq(a, b) {
+          Equal
+        } else {
+          unreachable!("anyref are not cmp ed {:?} {:?}", a, b)
+        }
+      }
     }
   }
 }
@@ -299,6 +323,7 @@ impl PartialEq for Edn {
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
       (Self::Record(a), Self::Record(b)) => a == b,
+      (Self::AnyRef(a), Self::AnyRef(b)) => a == b,
       (_, _) => false,
     }
   }
@@ -311,8 +336,8 @@ impl Edn {
     Edn::Str(s.into())
   }
   /// create new tag
-  pub fn tag(s: &str) -> Self {
-    Edn::Tag(EdnTag::new(s))
+  pub fn tag<T: Into<Arc<str>>>(s: T) -> Self {
+    Edn::Tag(EdnTag::new(s.into()))
   }
   /// create new symbol
   pub fn sym<T: Into<Arc<str>>>(s: T) -> Self {
@@ -324,6 +349,10 @@ impl Edn {
       tag: Arc::new(tag),
       extra,
     })
+  }
+  /// create any-ref
+  pub fn any_ref<T: ToOwned + Any>(d: T) -> Self {
+    Edn::AnyRef(EdnAnyRef::new(d))
   }
   pub fn is_literal(&self) -> bool {
     matches!(
