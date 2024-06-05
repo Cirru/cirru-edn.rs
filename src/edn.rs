@@ -6,7 +6,6 @@ mod set;
 mod tuple;
 
 use std::{
-  any::Any,
   cmp::{
     Eq,
     Ordering::{self, *},
@@ -23,7 +22,7 @@ use std::{
 use cirru_parser::Cirru;
 
 pub use self::tuple::EdnTupleView;
-pub use any_ref::EdnAnyRef;
+pub use any_ref::{DynEq, EdnAnyRef};
 pub use list::EdnListView;
 pub use map::EdnMapView;
 pub use record::EdnRecordView;
@@ -351,7 +350,7 @@ impl Edn {
     })
   }
   /// create any-ref
-  pub fn any_ref<T: ToOwned + Any>(d: T) -> Self {
+  pub fn any_ref<T: ToOwned + DynEq + 'static>(d: T) -> Self {
     Edn::AnyRef(EdnAnyRef::new(d))
   }
   pub fn is_literal(&self) -> bool {
