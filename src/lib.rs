@@ -9,7 +9,9 @@ use std::vec;
 
 use cirru_parser::{Cirru, CirruWriterOptions};
 
-pub use edn::{DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView};
+pub use edn::{
+  is_simple_char, DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView,
+};
 pub use tag::EdnTag;
 
 /// parse Cirru code into data
