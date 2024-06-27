@@ -12,7 +12,7 @@ use std::{
   },
   collections::{HashMap, HashSet},
   convert::{TryFrom, TryInto},
-  fmt,
+  fmt::{self, Write},
   hash::{Hash, Hasher},
   iter::FromIterator,
   ptr,
@@ -63,7 +63,15 @@ impl fmt::Display for Edn {
         if is_simple_token(s) {
           f.write_fmt(format_args!("|{}", s))
         } else {
-          f.write_fmt(format_args!("\"|{}\"", s))
+          f.write_str("\"|")?;
+          for c in s.chars() {
+            if is_simple_char(c) {
+              f.write_char(c)?;
+            } else {
+              f.write_str(&c.escape_default().to_string())?;
+            }
+          }
+          f.write_char('"')
         }
       }
       Self::Quote(v) => f.write_fmt(format_args!("(quote {})", v)),
@@ -122,9 +130,14 @@ impl fmt::Display for Edn {
   }
 }
 
+/// check if a char is simple enough to be printed without quotes
+pub fn is_simple_char(c: char) -> bool {
+  matches!(c, '0'..='9' | 'A'..='Z' | 'a'..='z' | '-' | '?' | '.' | '$' | ',') || cjk::is_cjk_codepoint(c)
+}
+
 fn is_simple_token(tok: &str) -> bool {
-  for s in tok.bytes() {
-    if !matches!(s, b'0'..=b'9' | b'A'..=b'Z'| b'a'..=b'z'|  b'-' | b'?' | b'.'| b'$' | b',') {
+  for s in tok.chars() {
+    if !is_simple_char(s) {
       return false;
     }
   }
