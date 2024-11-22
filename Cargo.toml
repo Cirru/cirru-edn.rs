@@ -1,6 +1,6 @@
 [package]
 name = "cirru_edn"
-version = "0.6.11"
+version = "0.6.12"
 authors = ["jiyinyiyong <jiyinyiyong@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -16,7 +16,6 @@ readme = "README.md"
 cirru_parser = "0.1.30"
 # cirru_parser = { path = "../parser.rs" }
 hex = "0.4.3"
-lazy_static = "1.4.0"
 bincode = "2.0.0-rc.3"
 cjk = "0.2.5"
 
