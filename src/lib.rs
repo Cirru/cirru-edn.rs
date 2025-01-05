@@ -114,6 +114,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               Ok(Edn::List(EdnListView(ys)))
             }
             "#{}" => {
+              #[allow(clippy::mutable_key_type)]
               let mut ys: HashSet<Edn> = HashSet::new();
               for x in xs.iter().skip(1) {
                 if is_comment(x) {
@@ -129,6 +130,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               Ok(Edn::Set(EdnSetView(ys)))
             }
             "{}" => {
+              #[allow(clippy::mutable_key_type)]
               let mut zs: HashMap<Edn, Edn> = HashMap::new();
               for x in xs.iter().skip(1) {
                 if is_comment(x) {

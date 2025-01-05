@@ -67,6 +67,7 @@ fn building_set() {
   set.insert(Edn::Number(1.0));
   set.insert(Edn::Number(2.0));
 
+  #[allow(clippy::mutable_key_type)]
   let mut s = HashSet::new();
   s.insert(Edn::Number(1.0));
   s.insert(Edn::Number(2.0));
