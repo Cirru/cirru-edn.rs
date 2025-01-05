@@ -221,6 +221,13 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               }
               Ok(Edn::Buffer(ys))
             }
+            "atom" => {
+              if xs.len() == 2 {
+                Ok(Edn::Atom(Box::new(extract_cirru_edn(&xs[1])?)))
+              } else {
+                Err(String::from("missing edn atom value"))
+              }
+            }
             a => Err(format!("invalid operator for edn: {}", a)),
           },
           Cirru::List(a) => Err(format!("invalid nodes for edn: {:?}", a)),
@@ -321,6 +328,10 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       Cirru::List(ys)
     }
     Edn::AnyRef(..) => unreachable!("AnyRef is not serializable"),
+    Edn::Atom(v) => {
+      let ys = vec!["atom".into(), assemble_cirru_node(v)];
+      Cirru::List(ys)
+    }
   }
 }
 

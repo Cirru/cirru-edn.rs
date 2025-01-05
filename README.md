@@ -124,6 +124,12 @@ extra format for holding buffer, which is internally `Vec<u8>`:
 buf 00 01 f1 11
 ```
 
+atom, which translates to a reference to a value:
+
+```cirru
+atom 1
+```
+
 ### License
 
 MIT
