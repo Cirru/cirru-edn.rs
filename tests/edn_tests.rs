@@ -68,6 +68,7 @@ fn list_parsing() {
 
 #[test]
 fn set_parsing() {
+  #[allow(clippy::mutable_key_type)]
   let mut v: HashSet<Edn> = HashSet::new();
   v.insert(Edn::tag("a"));
   v.insert(Edn::tag("b"));
@@ -147,6 +148,7 @@ fn list_writing() -> Result<(), String> {
 
 #[test]
 fn set_writing() -> Result<(), String> {
+  #[allow(clippy::mutable_key_type)]
   let mut v = HashSet::new();
   v.insert(Edn::Number(1.0));
   v.insert(Edn::from(vec![Edn::Number(3.0)]));
@@ -257,13 +259,16 @@ fn debug_format() {
   // let data = cirru_edn::parse(String::from(DICT_DEMO2))?;
   // assert_eq!(format!("{}", data), DICT_INLINE2);
 
+  #[allow(clippy::mutable_key_type)]
   let empty: HashMap<Edn, Edn> = HashMap::new();
   assert_eq!(format!("{}", Edn::from(empty)), "({})");
 
+  #[allow(clippy::mutable_key_type)]
   let mut singleton: HashMap<Edn, Edn> = HashMap::new();
   singleton.insert(Edn::tag("a"), Edn::str("b"));
   assert_eq!(format!("{}", Edn::from(singleton)), "({} (:a |b))");
 
+  #[allow(clippy::mutable_key_type)]
   let mut singleton_set: HashSet<Edn> = HashSet::new();
   singleton_set.insert(Edn::sym("a"));
   assert_eq!(format!("{}", Edn::from(singleton_set)), "(#{} 'a)");
@@ -289,6 +294,7 @@ fn test_reader() -> Result<(), String> {
   );
   assert_eq!(Edn::from(vec![Edn::Number(1.0)]).view_list()?.get_or_nil(1), Edn::Nil);
 
+  #[allow(clippy::mutable_key_type)]
   let mut dict = HashMap::new();
   dict.insert(Edn::tag("k"), Edn::Number(1.1));
   assert!((Edn::from(dict.to_owned()).view_map()?.get_or_nil("k").read_number()? - 1.1).abs() < f64::EPSILON);
@@ -325,6 +331,7 @@ fn test_buffer() -> Result<(), String> {
 
 #[test]
 fn test_string_order() -> Result<(), String> {
+  #[allow(clippy::mutable_key_type)]
   let mut data: HashMap<Edn, Edn> = HashMap::new();
   data.insert(Edn::tag("a"), Edn::Number(1.0));
   data.insert(Edn::tag("c"), Edn::Number(2.0));
@@ -335,6 +342,7 @@ fn test_string_order() -> Result<(), String> {
     "{} (:Z 4) (:a 1) (:b 3) (:c 2)".to_owned()
   );
 
+  #[allow(clippy::mutable_key_type)]
   let mut data2: HashMap<Edn, Edn> = HashMap::new();
   data2.insert(Edn::str("a"), Edn::Number(1.0));
   data2.insert(Edn::str("c"), Edn::Number(2.0));
@@ -345,6 +353,7 @@ fn test_string_order() -> Result<(), String> {
     "{} (|Z 4) (|a 1) (|b 3) (|c 2)".to_owned()
   );
 
+  #[allow(clippy::mutable_key_type)]
   let mut v: HashSet<Edn> = HashSet::new();
   v.insert(Edn::tag("a"));
   v.insert(Edn::tag("1"));

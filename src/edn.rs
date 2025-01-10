@@ -49,6 +49,7 @@ pub enum Edn {
   Buffer(Vec<u8>),
   /// reference to Rust data, not interpretable in Calcit
   AnyRef(EdnAnyRef),
+  Atom(Box<Edn>),
 }
 
 impl fmt::Display for Edn {
@@ -126,6 +127,7 @@ impl fmt::Display for Edn {
         f.write_str(")")
       }
       Self::AnyRef(_r) => f.write_str("(any-ref ...)"),
+      Self::Atom(a) => f.write_fmt(format_args!("(atom {})", a)),
     }
   }
 }
@@ -216,6 +218,10 @@ impl Hash for Edn {
         "any-ref:".hash(_state);
         ptr::hash(h, _state);
       }
+      Self::Atom(a) => {
+        "atom:".hash(_state);
+        a.hash(_state);
+      }
     }
   }
 }
@@ -300,6 +306,11 @@ impl Ord for Edn {
 
       (Self::Record(..), _) => Less,
       (_, Self::Record(..)) => Greater,
+
+      (Self::Atom(a), Self::Atom(b)) => a.cmp(b),
+      (Self::Atom(_), _) => Less,
+      (_, Self::Atom(_)) => Greater,
+
       (Self::AnyRef(a), Self::AnyRef(b)) => {
         if ptr::eq(a, b) {
           Equal
@@ -336,6 +347,7 @@ impl PartialEq for Edn {
       (Self::Map(a), Self::Map(b)) => a == b,
       (Self::Record(a), Self::Record(b)) => a == b,
       (Self::AnyRef(a), Self::AnyRef(b)) => a == b,
+      (Self::Atom(a), Self::Atom(b)) => a == b,
       (_, _) => false,
     }
   }
