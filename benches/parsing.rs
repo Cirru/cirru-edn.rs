@@ -4,7 +4,7 @@ use std::fs;
 use cirru_edn::parse;
 
 fn criterion_benchmark(c: &mut Criterion) {
-  let large_demo = "/Users/chenyong/repo/calcit-lang/editor/compact.cirru";
+  let large_demo = "/Users/chenyong/repo/calcit-lang/editor/calcit.cirru";
   let content = fs::read_to_string(large_demo).unwrap();
 
   c.bench_function("parse", |b| {
