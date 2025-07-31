@@ -278,7 +278,7 @@ fn debug_format() {
 
   let code = Edn::from(vec![Edn::Quote(vec!["a", "b"].into())]);
 
-  assert_eq!(format!("{}", code), "([] (quote (a b)))");
+  assert_eq!(format!("{code}"), "([] (quote (a b)))");
 }
 
 #[test]
@@ -400,7 +400,7 @@ fn test_iter() -> Result<(), String> {
   ];
   let data = Edn::from(xs);
   for item in &data.view_list()? {
-    println!("{:?}", item);
+    println!("{item:?}");
   }
   Ok(())
 }

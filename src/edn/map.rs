@@ -15,7 +15,7 @@ impl TryFrom<Edn> for EdnMapView {
     match data {
       Edn::Map(xs) => Ok(xs),
       Edn::Nil => Ok(EdnMapView(HashMap::new())),
-      a => Err(format!("data is not map: {}", a)),
+      a => Err(format!("data is not map: {a}")),
     }
   }
 }

@@ -67,7 +67,7 @@ fn main() -> Result<(), String> {
     ("owner".into(), Edn::Nil),
   ])));
   let cat: Cat = data.try_into()?;
-  println!("new {:?}", cat);
+  println!("new {cat:?}");
   assert_eq!(cat.name, "Kii");
   let data2: Edn = cat.into();
   assert_eq!(data2.view_map()?.get_or_nil("name"), Edn::str("Kii"));

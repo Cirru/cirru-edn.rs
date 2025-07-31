@@ -56,13 +56,13 @@ impl fmt::Display for Edn {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::Nil => f.write_str("nil"),
-      Self::Bool(v) => f.write_fmt(format_args!("{}", v)),
-      Self::Number(n) => f.write_fmt(format_args!("{}", n)),
-      Self::Symbol(s) => f.write_fmt(format_args!("'{}", s)),
-      Self::Tag(s) => f.write_fmt(format_args!(":{}", s)),
+      Self::Bool(v) => f.write_fmt(format_args!("{v}")),
+      Self::Number(n) => f.write_fmt(format_args!("{n}")),
+      Self::Symbol(s) => f.write_fmt(format_args!("'{s}")),
+      Self::Tag(s) => f.write_fmt(format_args!(":{s}")),
       Self::Str(s) => {
         if is_simple_token(s) {
-          f.write_fmt(format_args!("|{}", s))
+          f.write_fmt(format_args!("|{s}"))
         } else {
           f.write_str("\"|")?;
           for c in s.chars() {
@@ -75,7 +75,7 @@ impl fmt::Display for Edn {
           f.write_char('"')
         }
       }
-      Self::Quote(v) => f.write_fmt(format_args!("(quote {})", v)),
+      Self::Quote(v) => f.write_fmt(format_args!("(quote {v})")),
       Self::Tuple(EdnTupleView { tag, extra }) => {
         let mut extra_str = String::new();
         for item in extra {
@@ -88,21 +88,21 @@ impl fmt::Display for Edn {
       Self::List(EdnListView(xs)) => {
         f.write_str("([]")?;
         for x in xs {
-          f.write_fmt(format_args!(" {}", x))?;
+          f.write_fmt(format_args!(" {x}"))?;
         }
         f.write_str(")")
       }
       Self::Set(xs) => {
         f.write_str("(#{}")?;
         for x in &xs.0 {
-          f.write_fmt(format_args!(" {}", x))?;
+          f.write_fmt(format_args!(" {x}"))?;
         }
         f.write_str(")")
       }
       Self::Map(xs) => {
         f.write_str("({}")?;
         for (k, v) in &xs.0 {
-          f.write_fmt(format_args!(" ({} {})", k, v))?;
+          f.write_fmt(format_args!(" ({k} {v})"))?;
         }
         f.write_str(")")
       }
@@ -110,7 +110,7 @@ impl fmt::Display for Edn {
         tag: name,
         pairs: entries,
       }) => {
-        f.write_fmt(format_args!("(%{{}} :{}", name))?;
+        f.write_fmt(format_args!("(%{{}} :{name}"))?;
 
         for entry in entries {
           f.write_fmt(format_args!(" ({} {})", Edn::Tag(entry.0.to_owned()), entry.1))?;
@@ -127,7 +127,7 @@ impl fmt::Display for Edn {
         f.write_str(")")
       }
       Self::AnyRef(_r) => f.write_str("(any-ref ...)"),
-      Self::Atom(a) => f.write_fmt(format_args!("(atom {})", a)),
+      Self::Atom(a) => f.write_fmt(format_args!("(atom {a})")),
     }
   }
 }
@@ -396,52 +396,52 @@ impl Edn {
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok((**s).to_owned()),
-      a => Err(format!("failed to convert to string: {}", a)),
+      a => Err(format!("failed to convert to string: {a}")),
     }
   }
   pub fn read_symbol_string(&self) -> Result<String, String> {
     match self {
       Edn::Symbol(s) => Ok((**s).to_owned()),
-      a => Err(format!("failed to convert to symbol: {}", a)),
+      a => Err(format!("failed to convert to symbol: {a}")),
     }
   }
   pub fn read_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Str(s) => Ok(s.to_owned()),
-      a => Err(format!("failed to convert to string: {}", a)),
+      a => Err(format!("failed to convert to string: {a}")),
     }
   }
   pub fn read_symbol_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Symbol(s) => Ok(s.to_owned()),
-      a => Err(format!("failed to convert to symbol: {}", a)),
+      a => Err(format!("failed to convert to symbol: {a}")),
     }
   }
   pub fn read_tag_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Tag(s) => Ok(s.arc_str()),
-      a => Err(format!("failed to convert to tag: {}", a)),
+      a => Err(format!("failed to convert to tag: {a}")),
     }
   }
 
   pub fn read_bool(&self) -> Result<bool, String> {
     match self {
       Edn::Bool(b) => Ok(*b),
-      a => Err(format!("failed to convert to bool: {}", a)),
+      a => Err(format!("failed to convert to bool: {a}")),
     }
   }
 
   pub fn read_number(&self) -> Result<f64, String> {
     match self {
       Edn::Number(n) => Ok(*n),
-      a => Err(format!("failed to convert to number: {}", a)),
+      a => Err(format!("failed to convert to number: {a}")),
     }
   }
 
   pub fn read_quoted_cirru(&self) -> Result<Cirru, String> {
     match self {
       Edn::Quote(c) => Ok(c.to_owned()),
-      a => Err(format!("failed to convert to cirru code: {}", a)),
+      a => Err(format!("failed to convert to cirru code: {a}")),
     }
   }
 
@@ -452,7 +452,7 @@ impl Edn {
     match self {
       Edn::List(xs) => Ok((*xs).to_owned()),
       Edn::Nil => Ok(EdnListView::default()),
-      a => Err(format!("failed to convert to list: {}", a)),
+      a => Err(format!("failed to convert to list: {a}")),
     }
   }
 
@@ -461,7 +461,7 @@ impl Edn {
     match self {
       Edn::Map(xs) => Ok(xs.to_owned()),
       Edn::Nil => Ok(EdnMapView::default()),
-      a => Err(format!("failed to convert to map: {}", a)),
+      a => Err(format!("failed to convert to map: {a}")),
     }
   }
 
@@ -470,7 +470,7 @@ impl Edn {
     match self {
       Edn::Set(xs) => Ok(xs.to_owned()),
       Edn::Nil => Ok(EdnSetView::default()),
-      a => Err(format!("failed to convert to set: {}", a)),
+      a => Err(format!("failed to convert to set: {a}")),
     }
   }
 
@@ -481,7 +481,7 @@ impl Edn {
         tag: tag.to_owned(),
         pairs: pairs.to_owned(),
       }),
-      a => Err(format!("failed to convert to record: {}", a)),
+      a => Err(format!("failed to convert to record: {a}")),
     }
   }
 
@@ -492,7 +492,7 @@ impl Edn {
         tag: tag.to_owned(),
         extra: extra.to_owned(),
       }),
-      a => Err(format!("failed to convert to tuple: {}", a)),
+      a => Err(format!("failed to convert to tuple: {a}")),
     }
   }
 }
@@ -502,7 +502,7 @@ impl TryFrom<Edn> for EdnTag {
   fn try_from(x: Edn) -> Result<EdnTag, String> {
     match x {
       Edn::Tag(k) => Ok(k),
-      _ => Err(format!("failed to convert to tag: {}", x)),
+      _ => Err(format!("failed to convert to tag: {x}")),
     }
   }
 }
@@ -524,9 +524,9 @@ impl TryFrom<Edn> for String {
   fn try_from(x: Edn) -> Result<String, Self::Error> {
     match x {
       Edn::Str(s) => Ok((*s).to_owned()),
-      Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
+      Edn::Symbol(s) => Err(format!("cannot convert symbol {s} into string")),
       Edn::Tag(s) => Ok(s.to_string()),
-      a => Err(format!("failed to convert to string: {}", a)),
+      a => Err(format!("failed to convert to string: {a}")),
     }
   }
 }
@@ -536,9 +536,9 @@ impl TryFrom<&Edn> for String {
   fn try_from(x: &Edn) -> Result<String, Self::Error> {
     match x {
       Edn::Str(s) => Ok((**s).to_owned()),
-      Edn::Symbol(s) => Err(format!("cannot convert symbol {} into string", s)),
+      Edn::Symbol(s) => Err(format!("cannot convert symbol {s} into string")),
       Edn::Tag(s) => Ok(s.to_string()),
-      a => Err(format!("failed to convert to string: {}", a)),
+      a => Err(format!("failed to convert to string: {a}")),
     }
   }
 }
@@ -573,7 +573,7 @@ impl TryFrom<Edn> for Arc<str> {
     match x {
       Edn::Str(s) => Ok((*s).into()),
       Edn::Tag(s) => Ok(s.arc_str()),
-      a => Err(format!("failed to convert to arc str: {}", a)),
+      a => Err(format!("failed to convert to arc str: {a}")),
     }
   }
 }
@@ -595,7 +595,7 @@ impl TryFrom<Edn> for bool {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Bool(s) => Ok(s),
-      a => Err(format!("failed to convert to bool: {}", a)),
+      a => Err(format!("failed to convert to bool: {a}")),
     }
   }
 }
@@ -617,7 +617,7 @@ impl TryFrom<Edn> for f64 {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Number(s) => Ok(s),
-      a => Err(format!("failed to convert to number: {}", a)),
+      a => Err(format!("failed to convert to number: {a}")),
     }
   }
 }
@@ -639,7 +639,7 @@ impl TryFrom<Edn> for f32 {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Number(s) => Ok(s as f32),
-      a => Err(format!("failed to convert to number: {}", a)),
+      a => Err(format!("failed to convert to number: {a}")),
     }
   }
 }
@@ -661,7 +661,7 @@ impl TryFrom<Edn> for i64 {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Number(s) => Ok(s as i64),
-      a => Err(format!("failed to convert to number: {}", a)),
+      a => Err(format!("failed to convert to number: {a}")),
     }
   }
 }
@@ -704,10 +704,10 @@ impl TryFrom<Edn> for u8 {
         if s >= u8::MIN as f64 && s <= u8::MAX as f64 && s.fract().abs() <= f64::EPSILON {
           Ok(s as u8)
         } else {
-          Err(format!("invalid u8 value: {}", s))
+          Err(format!("invalid u8 value: {s}"))
         }
       }
-      a => Err(format!("failed to convert to u8: {}", a)),
+      a => Err(format!("failed to convert to u8: {a}")),
     }
   }
 }
@@ -738,10 +738,10 @@ impl TryFrom<Edn> for i8 {
         if s >= i8::MIN as f64 && s <= i8::MAX as f64 && s.fract().abs() <= f64::EPSILON {
           Ok(s as i8)
         } else {
-          Err(format!("invalid i8 value: {}", s))
+          Err(format!("invalid i8 value: {s}"))
         }
       }
-      a => Err(format!("failed to convert to i8: {}", a)),
+      a => Err(format!("failed to convert to i8: {a}")),
     }
   }
 }
@@ -763,7 +763,7 @@ impl TryFrom<Edn> for Cirru {
   fn try_from(x: Edn) -> Result<Self, Self::Error> {
     match x {
       Edn::Quote(s) => Ok(s),
-      a => Err(format!("failed to convert to cirru code: {}", a)),
+      a => Err(format!("failed to convert to cirru code: {a}")),
     }
   }
 }
@@ -784,7 +784,7 @@ where
         Ok(ys)
       }
       Edn::Nil => Ok(vec![]),
-      a => Err(format!("failed to convert to vec: {}", a)),
+      a => Err(format!("failed to convert to vec: {a}")),
     }
   }
 }
@@ -868,7 +868,7 @@ where
         Ok(ys)
       }
       Edn::Nil => Ok(HashSet::new()),
-      a => Err(format!("failed to convert to vec: {}", a)),
+      a => Err(format!("failed to convert to vec: {a}")),
     }
   }
 }
@@ -909,7 +909,7 @@ where
         Ok(ys)
       }
       Edn::Nil => Ok(HashMap::new()),
-      a => Err(format!("failed to convert to vec: {}", a)),
+      a => Err(format!("failed to convert to vec: {a}")),
     }
   }
 }

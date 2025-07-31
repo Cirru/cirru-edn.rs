@@ -31,7 +31,7 @@ impl TryFrom<Edn> for EdnRecordView {
         }
         Ok(EdnRecordView { tag: t, pairs: buf })
       }
-      a => Err(format!("data is not record: {}", a)),
+      a => Err(format!("data is not record: {a}")),
     }
   }
 }

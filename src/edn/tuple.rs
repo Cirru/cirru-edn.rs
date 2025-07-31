@@ -26,7 +26,7 @@ impl TryFrom<Edn> for EdnTupleView {
   fn try_from(data: Edn) -> Result<Self, Self::Error> {
     match data {
       Edn::Tuple(EdnTupleView { tag, extra }) => Ok(EdnTupleView { tag, extra }),
-      a => Err(format!("data is not tuple: {}", a)),
+      a => Err(format!("data is not tuple: {a}")),
     }
   }
 }

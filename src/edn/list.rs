@@ -35,7 +35,7 @@ impl TryFrom<Edn> for EdnListView {
   fn try_from(value: Edn) -> Result<Self, Self::Error> {
     match value {
       Edn::List(xs) => Ok(xs),
-      _ => Err(format!("expecting list, got: {}", value)),
+      _ => Err(format!("expecting list, got: {value}")),
     }
   }
 }

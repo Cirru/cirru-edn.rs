@@ -14,7 +14,7 @@ impl TryFrom<Edn> for EdnSetView {
     match data {
       Edn::Set(xs) => Ok(xs),
       Edn::Nil => Ok(EdnSetView(HashSet::new())),
-      a => Err(format!("data is not set: {}", a)),
+      a => Err(format!("data is not set: {a}")),
     }
   }
 }

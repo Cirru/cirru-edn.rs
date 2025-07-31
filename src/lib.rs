@@ -19,7 +19,7 @@ pub fn parse(s: &str) -> Result<Edn, String> {
   let xs = cirru_parser::parse(s)?;
   if xs.len() == 1 {
     match &xs[0] {
-      Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {}", s)),
+      Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {s}")),
       Cirru::List(_) => extract_cirru_edn(&xs[0]),
     }
   } else {
@@ -42,7 +42,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
           if let Ok(f) = s1.trim().parse::<f64>() {
             Ok(Edn::Number(f))
           } else {
-            Err(format!("unknown token for edn value: {:?}", s1))
+            Err(format!("unknown token for edn value: {s1:?}"))
           }
         }
       },
@@ -137,7 +137,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   continue;
                 }
                 match x {
-                  Cirru::Leaf(s) => return Err(format!("expected a pair, invalid map entry: {}", s)),
+                  Cirru::Leaf(s) => return Err(format!("expected a pair, invalid map entry: {s}")),
                   Cirru::List(ys) => {
                     if ys.len() == 2 {
                       match (extract_cirru_edn(&ys[0]), extract_cirru_edn(&ys[1])) {
@@ -145,7 +145,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                           zs.insert(k, v);
                         }
                         (Err(e), _) => return Err(format!("invalid map entry `{}` from `{}`", e, &ys[0])),
-                        (Ok(k), Err(e)) => return Err(format!("invalid map entry for `{}`, got {}", k, e)),
+                        (Ok(k), Err(e)) => return Err(format!("invalid map entry for `{k}`, got {e}")),
                       }
                     }
                   }
@@ -157,7 +157,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               if xs.len() >= 3 {
                 let name = match &xs[1] {
                   Cirru::Leaf(s) => EdnTag::new(s.strip_prefix(':').unwrap_or(s)),
-                  Cirru::List(e) => return Err(format!("expected record name in string: {:?}", e)),
+                  Cirru::List(e) => return Err(format!("expected record name in string: {e:?}")),
                 };
                 let mut entries: Vec<(EdnTag, Edn)> = Vec::with_capacity(xs.len() - 1);
 
@@ -166,7 +166,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                     continue;
                   }
                   match x {
-                    Cirru::Leaf(s) => return Err(format!("expected record, invalid record entry: {}", s)),
+                    Cirru::Leaf(s) => return Err(format!("expected record, invalid record entry: {s}")),
                     Cirru::List(ys) => {
                       if ys.len() == 2 {
                         match (&ys[0], extract_cirru_edn(&ys[1])) {
@@ -174,12 +174,12 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                             entries.push((EdnTag::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
                           (Cirru::Leaf(s), Err(e)) => {
-                            return Err(format!("invalid record value for `{}`, got: {}", s, e))
+                            return Err(format!("invalid record value for `{s}`, got: {e}"))
                           }
-                          (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {:?}", zs)),
+                          (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {zs:?}")),
                         }
                       } else {
-                        return Err(format!("expected pair of 2: {:?}", ys));
+                        return Err(format!("expected pair of 2: {ys:?}"));
                       }
                     }
                   }
@@ -209,16 +209,16 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                           if b.len() == 1 {
                             ys.push(b[0])
                           } else {
-                            return Err(format!("hex for buffer might be too large, got: {:?}", b));
+                            return Err(format!("hex for buffer might be too large, got: {b:?}"));
                           }
                         }
-                        Err(e) => return Err(format!("expected length 2 hex string in buffer, got: {} {}", y, e)),
+                        Err(e) => return Err(format!("expected length 2 hex string in buffer, got: {y} {e}")),
                       }
                     } else {
-                      return Err(format!("expected length 2 hex string in buffer, got: {}", y));
+                      return Err(format!("expected length 2 hex string in buffer, got: {y}"));
                     }
                   }
-                  _ => return Err(format!("expected hex string in buffer, got: {}", x)),
+                  _ => return Err(format!("expected hex string in buffer, got: {x}")),
                 }
               }
               Ok(Edn::Buffer(ys))
@@ -230,9 +230,9 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                 Err(String::from("missing edn atom value"))
               }
             }
-            a => Err(format!("invalid operator for edn: {}", a)),
+            a => Err(format!("invalid operator for edn: {a}")),
           },
-          Cirru::List(a) => Err(format!("invalid nodes for edn: {:?}", a)),
+          Cirru::List(a) => Err(format!("invalid nodes for edn: {a:?}")),
         }
       }
     }
@@ -251,9 +251,9 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     Edn::Nil => "nil".into(),
     Edn::Bool(v) => v.to_string().as_str().into(),
     Edn::Number(n) => n.to_string().as_str().into(),
-    Edn::Symbol(s) => format!("'{}", s).as_str().into(),
-    Edn::Tag(s) => format!(":{}", s).as_str().into(),
-    Edn::Str(s) => format!("|{}", s).as_str().into(),
+    Edn::Symbol(s) => format!("'{s}").as_str().into(),
+    Edn::Tag(s) => format!(":{s}").as_str().into(),
+    Edn::Str(s) => format!("|{s}").as_str().into(),
     Edn::Quote(v) => Cirru::List(vec!["quote".into(), (*v).to_owned()]),
     Edn::List(xs) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(xs.len() + 1);
@@ -297,7 +297,7 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
     }) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(entries.len() + 2);
       ys.push("%{}".into());
-      ys.push(format!(":{}", name).as_str().into());
+      ys.push(format!(":{name}").as_str().into());
       let mut ordered_entries = entries.to_owned();
       ordered_entries.sort_by(|(_a1, a2), (_b1, b2)| match (a2.is_literal(), b2.is_literal()) {
         (true, false) => Less,
