@@ -1,7 +1,45 @@
-//! Serde support for Edn
+//! Serde support for Edn data format.
 //!
-//! This module provides serde serialization and deserialization support for the Edn type,
+//! This module provides seamless integration with the serde ecosystem,
 //! allowing easy conversion between Rust structs and Edn values.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use cirru_edn::{to_edn, from_edn};
+//! use serde::{Serialize, Deserialize};
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Person {
+//!     name: String,
+//!     age: u32,
+//! }
+//!
+//! let person = Person { name: "Alice".to_string(), age: 30 };
+//!
+//! // Serialize to Edn
+//! let edn_value = to_edn(&person).unwrap();
+//!
+//! // Deserialize from Edn
+//! let recovered: Person = from_edn(edn_value).unwrap();
+//! ```
+//!
+//! # Type Mapping
+//!
+//! - Rust `Option<T>` maps to either `Edn::Nil` or the contained value
+//! - Rust `Vec<T>` maps to `Edn::List`
+//! - Rust `HashMap<K, V>` maps to `Edn::Map`
+//! - Rust `HashSet<T>` maps to `Edn::Set` (with special encoding)
+//! - Primitive types map directly to their Edn equivalents
+//!
+//! # Special Encodings
+//!
+//! Some Edn types that don't have direct serde equivalents are encoded as maps:
+//! - `Symbol` -> `{"__edn_symbol": "value"}`
+//! - `Tag` -> `{"__edn_tag": "value"}`
+//! - `Set` -> `{"__edn_set": [items]}`
+//! - `Buffer` -> `{"__edn_buffer": [bytes]}`
+//! - `Tuple` -> `{"__edn_tuple_tag": tag, "__edn_tuple_extra": [values]}`
 
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]

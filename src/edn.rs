@@ -30,25 +30,92 @@ pub use set::EdnSetView;
 
 use crate::tag::EdnTag;
 
-/// Data format based on subset of EDN, but in Cirru syntax.
-/// different parts are quote and Record.
+/// Extensible Data Notation (EDN) value representation.
+///
+/// This enum represents all possible EDN data types that can be expressed
+/// in Cirru syntax. It provides a rich set of data types for representing
+/// structured data, including primitives, collections, and special constructs.
+///
+/// # Data Types
+///
+/// - **Primitives**: `Nil`, `Bool`, `Number`, `Str`
+/// - **Named values**: `Symbol`, `Tag` (similar to keywords in other EDN implementations)
+/// - **Collections**: `List`, `Set`, `Map`, `Record`
+/// - **Special constructs**: `Quote`, `Tuple`, `Buffer`, `Atom`
+/// - **Runtime references**: `AnyRef` (for holding arbitrary Rust data)
+///
+/// # Examples
+///
+/// ```
+/// use cirru_edn::Edn;
+/// use std::collections::HashMap;
+///
+/// // Create primitive values
+/// let nil_val = Edn::Nil;
+/// let bool_val = Edn::Bool(true);
+/// let num_val = Edn::Number(42.0);
+/// let str_val = Edn::str("hello");
+///
+/// // Create named values
+/// let symbol_val = Edn::sym("my-symbol");
+/// let tag_val = Edn::tag("keyword");
+///
+/// // Create collections
+/// let list_val = Edn::List(vec![
+///     Edn::Number(1.0),
+///     Edn::Number(2.0),
+///     Edn::Number(3.0),
+/// ].into());
+///
+/// let map_val = Edn::map_from_iter([
+///     (Edn::tag("name"), Edn::str("Alice")),
+///     (Edn::tag("age"), Edn::Number(30.0)),
+/// ]);
+///
+/// // Create a tuple (tagged union)
+/// let tuple_val = Edn::tuple(
+///     Edn::tag("user"),
+///     vec![Edn::str("john"), Edn::Number(25.0)]
+/// );
+/// ```
 #[derive(fmt::Debug, Clone)]
 pub enum Edn {
+  /// Represents null/nil value. Rendered as `nil` in Cirru syntax.
   Nil,
+  /// Boolean value. Rendered as `true` or `false` in Cirru syntax.
   Bool(bool),
+  /// Floating-point number. All numbers in EDN are represented as f64.
   Number(f64),
+  /// Symbol - an identifier that can be used for variable names, function names, etc.
+  /// Rendered with a leading single quote, e.g., `'my-symbol`.
   Symbol(Arc<str>),
+  /// Tag (formerly called keyword) - a named constant often used as map keys or enums.
+  /// Rendered with a leading colon, e.g., `:my-tag`.
   Tag(EdnTag),
+  /// String value. Rendered with a leading pipe character for simple strings,
+  /// or quoted with escape sequences for complex strings.
   Str(Arc<str>), // name collision
+  /// Quoted Cirru code that is not evaluated. Used to represent code as data.
   Quote(Cirru),
+  /// Tuple - a tagged union type with a tag and optional extra values.
+  /// Useful for discriminated unions and algebraic data types.
   Tuple(EdnTupleView),
+  /// Ordered sequence of values. Rendered as `([] item1 item2 ...)`.
   List(EdnListView),
+  /// Unordered collection of unique values. Rendered as `(#{} item1 item2 ...)`.
   Set(EdnSetView),
+  /// Key-value mapping. Rendered as `({} (key1 value1) (key2 value2) ...)`.
   Map(EdnMapView),
+  /// Record - a structured data type with a type name and named fields.
+  /// Similar to structs in other languages.
   Record(EdnRecordView),
+  /// Binary data buffer. Rendered as `(buf 01 ff a2 ...)` with hex values.
   Buffer(Vec<u8>),
-  /// reference to Rust data, not interpretable in Calcit
+  /// Reference to arbitrary Rust data that cannot be serialized to EDN.
+  /// Useful for holding runtime objects and opaque handles.
   AnyRef(EdnAnyRef),
+  /// Atomic reference to another EDN value. Used for mutable references
+  /// and sharing data structures.
   Atom(Box<Edn>),
 }
 
@@ -384,39 +451,53 @@ impl Edn {
       Self::Nil | Self::Bool(_) | Self::Number(_) | Self::Symbol(_) | Self::Tag(_) | Self::Str(_)
     )
   }
+
+  /// Create a map from an iterator of key-value pairs
   pub fn map_from_iter<T: IntoIterator<Item = (Edn, Edn)>>(pairs: T) -> Self {
     Self::Map(EdnMapView(HashMap::from_iter(pairs)))
   }
+
+  /// Create a record from a tag and field pairs
   pub fn record_from_pairs(tag: EdnTag, pairs: &[(EdnTag, Edn)]) -> Self {
     Self::Record(EdnRecordView {
       tag,
       pairs: pairs.to_vec(),
     })
   }
+
+  /// Extract the string value, returning an owned String
   pub fn read_string(&self) -> Result<String, String> {
     match self {
       Edn::Str(s) => Ok((**s).to_owned()),
       a => Err(format!("failed to convert to string: {a}")),
     }
   }
+
+  /// Extract the symbol value as an owned String
   pub fn read_symbol_string(&self) -> Result<String, String> {
     match self {
       Edn::Symbol(s) => Ok((**s).to_owned()),
       a => Err(format!("failed to convert to symbol: {a}")),
     }
   }
+
+  /// Extract the string value as an Arc<str>
   pub fn read_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Str(s) => Ok(s.to_owned()),
       a => Err(format!("failed to convert to string: {a}")),
     }
   }
+
+  /// Extract the symbol value as an Arc<str>
   pub fn read_symbol_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Symbol(s) => Ok(s.to_owned()),
       a => Err(format!("failed to convert to symbol: {a}")),
     }
   }
+
+  /// Extract the tag value as an Arc<str>
   pub fn read_tag_str(&self) -> Result<Arc<str>, String> {
     match self {
       Edn::Tag(s) => Ok(s.arc_str()),
@@ -424,6 +505,7 @@ impl Edn {
     }
   }
 
+  /// Extract the boolean value
   pub fn read_bool(&self) -> Result<bool, String> {
     match self {
       Edn::Bool(b) => Ok(*b),
@@ -431,6 +513,7 @@ impl Edn {
     }
   }
 
+  /// Extract the numeric value
   pub fn read_number(&self) -> Result<f64, String> {
     match self {
       Edn::Number(n) => Ok(*n),
@@ -438,6 +521,7 @@ impl Edn {
     }
   }
 
+  /// Extract quoted Cirru code
   pub fn read_quoted_cirru(&self) -> Result<Cirru, String> {
     match self {
       Edn::Quote(c) => Ok(c.to_owned()),
@@ -953,5 +1037,73 @@ where
 impl From<(Arc<Edn>, Vec<Edn>)> for Edn {
   fn from((tag, extra): (Arc<Edn>, Vec<Edn>)) -> Edn {
     Edn::Tuple(EdnTupleView { tag, extra })
+  }
+}
+
+// Additional From implementations for common integer types
+impl From<u32> for Edn {
+  fn from(x: u32) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&u32> for Edn {
+  fn from(x: &u32) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl From<u64> for Edn {
+  fn from(x: u64) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&u64> for Edn {
+  fn from(x: &u64) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl From<i16> for Edn {
+  fn from(x: i16) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&i16> for Edn {
+  fn from(x: &i16) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl From<u16> for Edn {
+  fn from(x: u16) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&u16> for Edn {
+  fn from(x: &u16) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+impl From<&usize> for Edn {
+  fn from(x: &usize) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
+// Helpful conversion from Cow<str>
+impl From<std::borrow::Cow<'_, str>> for Edn {
+  fn from(x: std::borrow::Cow<'_, str>) -> Self {
+    Edn::Str(x.into_owned().into())
+  }
+}
+
+impl From<&std::borrow::Cow<'_, str>> for Edn {
+  fn from(x: &std::borrow::Cow<'_, str>) -> Self {
+    Edn::Str(x.to_string().into())
   }
 }
