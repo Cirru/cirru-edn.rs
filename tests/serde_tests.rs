@@ -141,3 +141,70 @@ fn test_error_handling() {
   let result: Result<Person, _> = from_edn(incomplete_edn);
   assert!(result.is_err());
 }
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct PersonWithHyphenatedFields {
+  name: String,
+  #[serde(rename = "first-name")]
+  first_name: String,
+  #[serde(rename = "last-name")]
+  last_name: String,
+  #[serde(rename = "is-active")]
+  is_active: bool,
+  #[serde(rename = "skill-level")]
+  skill_level: u32,
+}
+
+#[test]
+fn test_hyphenated_field_names() {
+  let person = PersonWithHyphenatedFields {
+    name: "Alice".to_string(),
+    first_name: "Alice".to_string(),
+    last_name: "Johnson".to_string(),
+    is_active: true,
+    skill_level: 8,
+  };
+
+  // Convert to Edn - should use hyphenated field names
+  let edn_value = to_edn(&person).expect("Failed to convert to Edn");
+
+  // Verify that the EDN contains hyphenated field names
+  if let Edn::Map(map) = &edn_value {
+    assert!(map.0.contains_key(&Edn::tag("first-name")));
+    assert!(map.0.contains_key(&Edn::tag("last-name")));
+    assert!(map.0.contains_key(&Edn::tag("is-active")));
+    assert!(map.0.contains_key(&Edn::tag("skill-level")));
+    // Should NOT contain underscored versions
+    assert!(!map.0.contains_key(&Edn::tag("first_name")));
+    assert!(!map.0.contains_key(&Edn::tag("last_name")));
+    assert!(!map.0.contains_key(&Edn::tag("is_active")));
+    assert!(!map.0.contains_key(&Edn::tag("skill_level")));
+  } else {
+    panic!("Expected Edn::Map");
+  }
+
+  // Convert back to struct
+  let reconstructed: PersonWithHyphenatedFields = from_edn(edn_value).expect("Failed to convert from Edn");
+  assert_eq!(person, reconstructed);
+}
+
+#[test]
+fn test_manual_hyphenated_field_construction() {
+  // Create an Edn map manually with hyphenated field names
+  let edn_map = Edn::map_from_iter([
+    (Edn::tag("name"), "Bob".into()),
+    (Edn::tag("first-name"), "Bob".into()),
+    (Edn::tag("last-name"), "Smith".into()),
+    (Edn::tag("is-active"), false.into()),
+    (Edn::tag("skill-level"), 5i64.into()),
+  ]);
+
+  // Convert to struct
+  let person: PersonWithHyphenatedFields = from_edn(edn_map).expect("Failed to convert from manual Edn");
+
+  assert_eq!(person.name, "Bob");
+  assert_eq!(person.first_name, "Bob");
+  assert_eq!(person.last_name, "Smith");
+  assert!(!person.is_active);
+  assert_eq!(person.skill_level, 5);
+}

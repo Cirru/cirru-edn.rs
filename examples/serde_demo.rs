@@ -27,6 +27,23 @@ struct Department {
   active: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct PersonWithSpecialFields {
+  name: String,
+  age: u32,
+  // Rust 字段名使用下划线，但在 EDN 中映射为连字符
+  #[serde(rename = "first-name")]
+  first_name: String,
+  #[serde(rename = "last-name")]
+  last_name: String,
+  #[serde(rename = "is-active")]
+  is_active: bool,
+  #[serde(rename = "email-address")]
+  email_address: Option<String>,
+  #[serde(rename = "skill-level")]
+  skill_level: u32,
+}
+
 fn main() -> Result<(), String> {
   println!("=== Cirru EDN Serde Support Demo ===\n");
 
@@ -111,6 +128,55 @@ fn main() -> Result<(), String> {
     Ok(_) => println!("Unexpected success"),
     Err(e) => println!("Expected error: {}\n", e),
   }
+
+  // Demonstrate special field names with serde rename
+  println!("6. Special field names with serde rename...");
+  let special_person = PersonWithSpecialFields {
+    name: "David".to_string(),
+    age: 28,
+    first_name: "David".to_string(),
+    last_name: "Wilson".to_string(),
+    is_active: true,
+    email_address: Some("david.wilson@company.com".to_string()),
+    skill_level: 5,
+  };
+
+  println!("Original PersonWithSpecialFields:");
+  println!("{:#?}\n", special_person);
+
+  // Convert to Edn (should use hyphenated field names)
+  let special_edn = to_edn(&special_person)?;
+  println!("EDN with special field names:");
+  println!("{}\n", special_edn);
+
+  // Convert back to struct
+  let reconstructed_special: PersonWithSpecialFields = from_edn(special_edn)?;
+  println!("Reconstructed PersonWithSpecialFields:");
+  println!("{:#?}\n", reconstructed_special);
+
+  // Verify round-trip
+  if special_person == reconstructed_special {
+    println!("✅ Special field names round-trip successful!\n");
+  } else {
+    println!("❌ Special field names round-trip failed!\n");
+    return Err("Special field names round-trip failed".to_string());
+  }
+
+  // Manual construction with special field names
+  println!("7. Manual construction with hyphenated field names...");
+  let manual_special = Edn::map_from_iter([
+    (Edn::tag("name"), "Emma".into()),
+    (Edn::tag("age"), Edn::Number(32.0)),
+    (Edn::tag("first-name"), "Emma".into()),
+    (Edn::tag("last-name"), "Chen".into()),
+    (Edn::tag("is-active"), false.into()),
+    (Edn::tag("email-address"), "emma.chen@company.com".into()),
+    (Edn::tag("skill-level"), Edn::Number(8.0)),
+  ]);
+
+  let emma: PersonWithSpecialFields = from_edn(manual_special)?;
+  println!("Emma from manual EDN with hyphenated fields:");
+  println!("{:#?}\n", emma);
 
   println!("🎉 All demonstrations completed successfully!");
   Ok(())
