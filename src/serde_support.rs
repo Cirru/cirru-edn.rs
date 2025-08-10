@@ -81,7 +81,7 @@ impl Serialize for Edn {
       Edn::Str(s) => serializer.serialize_str(s),
       Edn::Quote(cirru) => {
         let mut map = serializer.serialize_map(Some(1))?;
-        map.serialize_entry("__edn_quote", &cirru_to_serializable(cirru))?;
+        map.serialize_entry("__edn_quote", cirru)?;
         map.end()
       }
       Edn::Tuple(EdnTupleView { tag, extra }) => {
@@ -315,7 +315,8 @@ impl<'de> Deserialize<'de> for Edn {
               }
               "__edn_quote" => {
                 if let Some(cirru_data) = special_data.get("__edn_quote") {
-                  let cirru = serializable_to_cirru(cirru_data)
+                  // 直接从Edn反序列化为Cirru，而不是通过自定义转换函数
+                  let cirru = from_edn::<Cirru>(cirru_data.clone())
                     .map_err(|e| de::Error::custom(format!("Invalid quote data: {}", e)))?;
                   Ok(Edn::Quote(cirru))
                 } else {
@@ -399,32 +400,6 @@ where
 {
   // Deserialize directly from Edn using custom deserializer
   T::deserialize(EdnDeserializer::new(value)).map_err(|e| e.to_string())
-}
-
-/// Convert a Cirru value to a serializable representation (nested arrays and strings)
-fn cirru_to_serializable(cirru: &Cirru) -> Edn {
-  match cirru {
-    Cirru::Leaf(s) => Edn::Str(s.as_ref().to_string().into()),
-    Cirru::List(items) => {
-      let serialized_items: Vec<Edn> = items.iter().map(cirru_to_serializable).collect();
-      Edn::List(EdnListView(serialized_items))
-    }
-  }
-}
-
-/// Convert a serializable representation back to Cirru
-fn serializable_to_cirru(value: &Edn) -> Result<Cirru, String> {
-  match value {
-    Edn::Str(s) => Ok(Cirru::Leaf(s.as_ref().into())),
-    Edn::List(EdnListView(items)) => {
-      let mut cirru_items = Vec::new();
-      for item in items {
-        cirru_items.push(serializable_to_cirru(item)?);
-      }
-      Ok(Cirru::List(cirru_items))
-    }
-    _ => Err(format!("Invalid Cirru representation: {:?}", value)),
-  }
 }
 
 // Custom Edn Serializer

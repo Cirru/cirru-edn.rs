@@ -14,7 +14,6 @@ struct Person {
   scores: HashMap<String, f64>,
 }
 
-#[cfg(feature = "serde")]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Department {
   name: String,

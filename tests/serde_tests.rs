@@ -1,4 +1,3 @@
-#![cfg(feature = "serde")]
 #![allow(clippy::mutable_key_type)]
 
 use cirru_edn::{from_edn, to_edn, Edn};
