@@ -3,34 +3,55 @@
 //! This module provides seamless integration with the serde ecosystem,
 //! allowing easy conversion between Rust structs and Edn values.
 //!
-//! # Usage
+//! # Key Type Distinction
+//!
+//! **This implementation makes an important distinction between struct fields and map keys:**
+//!
+//! - **Struct fields** use `Tag` (`:field_name`) - representing finite, enumerable identifiers
+//! - **Map keys** use `String` (`"key"`) - representing arbitrary string data
+//!
+//! This design preserves the semantic difference between:
+//! - **Tags**: Named constants like struct field names, enum variants, or record keys
+//! - **Strings**: Dynamic text data that can be any value
+//!
+//! # Basic Usage
 //!
 //! ```rust
 //! use cirru_edn::{to_edn, from_edn};
 //! use serde::{Serialize, Deserialize};
+//! use std::collections::HashMap;
 //!
-//! #[derive(Serialize, Deserialize)]
+//! #[derive(Serialize, Deserialize, Debug, PartialEq)]
 //! struct Person {
-//!     name: String,
-//!     age: u32,
+//!     name: String,                    // Will become :name (Tag)
+//!     age: u32,                        // Will become :age (Tag)
+//!     metadata: HashMap<String, String>, // Keys will be "key" (String)
 //! }
 //!
-//! let person = Person { name: "Alice".to_string(), age: 30 };
+//! let person = Person {
+//!     name: "Alice".to_string(),
+//!     age: 30,
+//!     metadata: [("role".to_string(), "admin".to_string())].into_iter().collect(),
+//! };
 //!
 //! // Serialize to Edn
 //! let edn_value = to_edn(&person).unwrap();
+//! // Results in: {:name "Alice", :age 30, :metadata {"role" "admin"}}
+//! //              ^^^^^ Tag                          ^^^^^^ String
 //!
 //! // Deserialize from Edn
 //! let recovered: Person = from_edn(edn_value).unwrap();
+//! assert_eq!(person, recovered);
 //! ```
 //!
 //! # Type Mapping
 //!
 //! - Rust `Option<T>` maps to either `Edn::Nil` or the contained value
 //! - Rust `Vec<T>` maps to `Edn::List`
-//! - Rust `HashMap<K, V>` maps to `Edn::Map`
+//! - Rust `HashMap<K, V>` maps to `Edn::Map` (keys become Strings)
 //! - Rust `HashSet<T>` maps to `Edn::Set` (with special encoding)
 //! - Primitive types map directly to their Edn equivalents
+//! - Struct fields map to Tags in `Edn::Map`
 //!
 //! # Special Encodings
 //!
@@ -340,27 +361,24 @@ impl<'de> Deserialize<'de> for Edn {
 
 /// Convert a `T` where `T` implements `Serialize` to `Edn`.
 ///
-/// This function directly serializes any serializable type to the `Edn` format,
-/// providing a convenient way to convert Rust data structures to EDN.
+/// This function directly serializes any serializable type to the `Edn` format.
+/// Struct fields become Tags (`:field_name`) and map keys become Strings (`"key"`).
 ///
 /// # Examples
 ///
 /// ```
 /// use serde::Serialize;
-/// use cirru_edn::{to_edn, Edn};
+/// use cirru_edn::to_edn;
 ///
 /// #[derive(Serialize)]
-/// struct Person {
-///     name: String,
-///     age: u32,
+/// struct Config {
+///     debug: bool,
+///     port: u16,
 /// }
 ///
-/// let person = Person {
-///     name: "Alice".to_string(),
-///     age: 30,
-/// };
-///
-/// let edn_value = to_edn(&person).unwrap();
+/// let config = Config { debug: true, port: 8080 };
+/// let edn_value = to_edn(&config).unwrap();
+/// // Results in: {:debug true, :port 8080}
 /// ```
 pub fn to_edn<T>(value: T) -> Result<Edn, String>
 where
@@ -372,27 +390,29 @@ where
 
 /// Convert an `Edn` to a `T` where `T` implements `Deserialize`.
 ///
-/// This function directly deserializes an `Edn` value to any deserializable type,
-/// providing a convenient way to convert EDN data back to Rust data structures.
+/// This function directly deserializes an `Edn` value to any deserializable type.
+/// Tags (`:field_name`) are used for struct fields and Strings (`"key"`) for map keys.
 ///
 /// # Examples
 ///
 /// ```
 /// use serde::Deserialize;
-/// use cirru_edn::{from_edn, Edn};
+/// use cirru_edn::{from_edn, Edn, EdnTag, EdnMapView};
+/// use std::collections::HashMap;
 ///
 /// #[derive(Deserialize)]
-/// struct Person {
-///     name: String,
-///     age: u32,
+/// struct Config {
+///     debug: bool,
+///     port: u16,
 /// }
 ///
-/// let edn_map = Edn::map_from_iter([
-///     ("name".into(), "Alice".into()),
-///     ("age".into(), 30.into()),
-/// ]);
+/// // Create EDN manually
+/// let mut map = HashMap::new();
+/// map.insert(Edn::Tag(EdnTag::new("debug")), true.into());
+/// map.insert(Edn::Tag(EdnTag::new("port")), 8080.into());
+/// let edn_map = Edn::Map(EdnMapView(map));
 ///
-/// let person: Person = from_edn(edn_map).unwrap();
+/// let config: Config = from_edn(edn_map).unwrap();
 /// ```
 pub fn from_edn<T>(value: Edn) -> Result<T, String>
 where
@@ -704,7 +724,10 @@ impl SerializeStruct for EdnMapSerializer {
   where
     T: ?Sized + Serialize,
   {
-    self.map.insert(Edn::Str(key.into()), value.serialize(EdnSerializer)?);
+    // Use Tag for struct field keys to distinguish from Map string keys
+    self
+      .map
+      .insert(Edn::Tag(EdnTag::new(key)), value.serialize(EdnSerializer)?);
     Ok(())
   }
 
@@ -886,7 +909,9 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
   {
     match self.value {
       Edn::Str(s) => visitor.visit_str(s.as_ref()),
-      _ => Err(EdnDeserializerError("Expected string".to_string())),
+      // Support Tag as string for struct field keys
+      Edn::Tag(tag) => visitor.visit_str(tag.0.as_ref()),
+      _ => Err(EdnDeserializerError("Expected string or tag".to_string())),
     }
   }
 
@@ -1202,10 +1227,10 @@ mod tests {
 
     let edn_value = to_edn(&test_data).unwrap();
 
-    // Verify the conversion
+    // Verify the conversion - struct fields should now use Tags
     if let Edn::Map(map) = edn_value {
-      assert!(map.0.contains_key(&Edn::Str("name".into())));
-      assert!(map.0.contains_key(&Edn::Str("age".into())));
+      assert!(map.0.contains_key(&Edn::Tag(EdnTag::new("name"))));
+      assert!(map.0.contains_key(&Edn::Tag(EdnTag::new("age"))));
     } else {
       panic!("Expected Edn::Map");
     }
@@ -1213,17 +1238,20 @@ mod tests {
 
   #[test]
   fn test_from_edn() {
-    let edn_map = Edn::map_from_iter([
-      ("name".into(), "Bob".into()),
-      ("age".into(), 25.into()),
-      ("is_active".into(), false.into()),
-      ("scores".into(), vec![90.0, 88.5].into()),
-      ("metadata".into(), {
+    // Use Tags for struct field keys instead of Strings
+    let edn_map = Edn::Map(EdnMapView({
+      let mut map = HashMap::new();
+      map.insert(Edn::Tag(EdnTag::new("name")), "Bob".into());
+      map.insert(Edn::Tag(EdnTag::new("age")), 25.into());
+      map.insert(Edn::Tag(EdnTag::new("is_active")), false.into());
+      map.insert(Edn::Tag(EdnTag::new("scores")), vec![90.0, 88.5].into());
+      map.insert(Edn::Tag(EdnTag::new("metadata")), {
         let mut meta = HashMap::new();
         meta.insert(Edn::Str("role".into()), Edn::Str("user".into()));
         Edn::Map(EdnMapView(meta))
-      }),
-    ]);
+      });
+      map
+    }));
 
     let result: Result<TestStruct, _> = from_edn(edn_map);
     assert!(result.is_ok());

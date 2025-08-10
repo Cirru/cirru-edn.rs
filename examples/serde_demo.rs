@@ -1,3 +1,8 @@
+//! # Serde Demo
+//!
+//! This example demonstrates basic serde integration with Cirru EDN,
+//! including serialization, deserialization, error handling, and manual EDN construction.
+
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 

@@ -32,6 +32,7 @@ jobs:
           # cargo run --example bincode
           cargo run --example serde_demo
           cargo run --example readme_test
+          cargo run --example struct_key_demo
 
       - name: Clippy check
         run: cargo clippy --all-features -- -D warnings

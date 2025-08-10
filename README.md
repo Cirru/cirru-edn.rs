@@ -26,11 +26,21 @@ cirru_edn::format(data, /* use_inline */ true); // Result<String, String>.
 
 Cirru EDN provides seamless integration with serde, allowing you to easily convert between Rust structs and EDN data with efficient direct serialization and deserialization.
 
+#### Key Type Distinction
+
+An important feature of this implementation is the semantic distinction between struct fields and map keys:
+
+- **Struct fields** use `Tag` (`:field_name`) - representing named constants and structured identifiers
+- **Map keys** use `String` (`"key"`) - representing arbitrary string data
+
+This design preserves the intended meaning of different data elements in EDN format.
+
 #### Basic Usage
 
 ```rust
 use cirru_edn::{to_edn, from_edn};
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 struct Person {
@@ -38,6 +48,7 @@ struct Person {
     age: u32,
     email: Option<String>,
     tags: Vec<String>,
+    metadata: HashMap<String, String>,  // Map keys will be Strings
 }
 
 let person = Person {
@@ -45,12 +56,14 @@ let person = Person {
     age: 30,
     email: Some("alice@example.com".to_string()),
     tags: vec!["developer".to_string(), "rust".to_string()],
+    metadata: [("role".to_string(), "senior".to_string())].into_iter().collect(),
 };
 
 // Convert struct to Edn
 let edn_value = to_edn(&person).unwrap();
 println!("EDN: {}", edn_value);
-// Output: ({} (|name |Alice) (|age 30) (|email "|alice@example.com") (|tags ([] |developer |rust)))
+// Output: {:name "Alice", :age 30, :email "alice@example.com", :tags ["developer", "rust"], :metadata {"role" "senior"}}
+//          ^^^^^ Tag                                                                                    ^^^^^^ String
 
 // Convert Edn back to struct
 let reconstructed: Person = from_edn(edn_value).unwrap();
@@ -66,19 +79,25 @@ assert_eq!(person, reconstructed);
 
 #### Manual Edn Construction
 
-You can also manually construct Edn data and then deserialize it to structs:
+You can also manually construct Edn data and then deserialize it to structs. Remember to use Tags for struct field keys:
 
 ```rust
-use cirru_edn::{Edn, from_edn};
+use cirru_edn::{Edn, EdnTag, EdnMapView, from_edn};
 use std::collections::HashMap;
 
-let edn_data = Edn::map_from_iter([
-    ("name".into(), "Bob".into()),
-    ("age".into(), Edn::Number(25.0)),
-    ("email".into(), Edn::Nil),
-    ("tags".into(), vec!["junior".to_string(), "javascript".to_string()].into()),
-]);
+// Construct EDN manually with proper key types
+let mut map = HashMap::new();
+map.insert(Edn::Tag(EdnTag::new("name")), "Bob".into());         // Tag for struct field
+map.insert(Edn::Tag(EdnTag::new("age")), Edn::Number(25.0));     // Tag for struct field
+map.insert(Edn::Tag(EdnTag::new("email")), Edn::Nil);            // Tag for struct field
+map.insert(Edn::Tag(EdnTag::new("tags")), vec!["junior".to_string(), "javascript".to_string()].into());
 
+// For metadata HashMap, use String keys
+let mut metadata_map = HashMap::new();
+metadata_map.insert(Edn::Str("department".into()), Edn::Str("engineering".into()));  // String for map key
+map.insert(Edn::Tag(EdnTag::new("metadata")), Edn::Map(EdnMapView(metadata_map)));
+
+let edn_data = Edn::Map(EdnMapView(map));
 let person: Person = from_edn(edn_data).unwrap();
 println!("{:?}", person);
 ```
