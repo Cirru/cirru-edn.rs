@@ -11,7 +11,7 @@ repository = "https://github.com/Cirru/cirru_edn.rs"
 readme = "README.md"
 
 [features]
-default = ["serde"]
+default = []
 serde = ["dep:serde", "dep:serde_json"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

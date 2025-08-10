@@ -9,7 +9,7 @@
 //! ## Features
 //!
 //! - **Rich data types**: nil, boolean, number, string, symbol, tag, list, set, map, record, tuple, buffer, atom
-//! - **Serde integration**: Seamless serialization/deserialization with Rust structs (when `serde` feature is enabled)
+//! - **Serde integration**: Seamless serialization/deserialization with Rust structs (requires enabling the `serde` feature)
 //! - **Efficient string handling**: Uses `Arc<str>` for string deduplication
 //! - **Runtime references**: Support for arbitrary Rust data via `AnyRef`
 //!
@@ -33,7 +33,14 @@
 //!
 //! ## Serde Integration
 //!
-//! When the `serde` feature is enabled:
+//! To use serde integration, enable the `serde` feature in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! cirru_edn = { version = "0.6", features = ["serde"] }
+//! ```
+//!
+//! Then you can use the serde functions:
 //!
 //! ```rust
 //! # #[cfg(feature = "serde")]

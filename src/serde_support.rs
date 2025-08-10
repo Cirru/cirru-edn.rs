@@ -3,6 +3,14 @@
 //! This module provides seamless integration with the serde ecosystem,
 //! allowing easy conversion between Rust structs and Edn values.
 //!
+//! **Note**: This module is only available when the `serde` feature is enabled.
+//! Add the following to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! cirru_edn = { version = "0.6", features = ["serde"] }
+//! ```
+//!
 //! # Usage
 //!
 //! ```rust

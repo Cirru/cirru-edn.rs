@@ -18,7 +18,14 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - run: cargo test
+      - name: Test core functionality
+        run: cargo test
+
+      - name: Test with serde feature
+        run: cargo test --features serde
+
+      - name: Test all features
+        run: cargo test --all-features
 
       - uses: katyo/publish-crates@v1
         with:
