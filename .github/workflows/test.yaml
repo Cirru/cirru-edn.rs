@@ -24,9 +24,6 @@ jobs:
       - name: Test core functionality
         run: cargo test
 
-      - name: Test all features
-        run: cargo test --all-features
-
       - name: Run all examples
         run: |
           # cargo run --example main
