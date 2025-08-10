@@ -800,6 +800,17 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
       Edn::Str(s) => visitor.visit_str(s.as_ref()),
       Edn::List(EdnListView(items)) => visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter())),
       Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
+      Edn::Quote(cirru) => {
+        // When deserializing a Quote to Cirru directly, we need to serialize the inner Cirru
+        // and then deserialize it through the normal Cirru deserializer
+        match cirru.serialize(EdnSerializer) {
+          Ok(edn_cirru) => {
+            // Now deserialize the serialized Cirru as if it came from normal serde
+            EdnDeserializer::new(edn_cirru).deserialize_any(visitor)
+          }
+          Err(e) => Err(EdnDeserializerError(format!("Failed to serialize Quote's Cirru: {}", e)))
+        }
+      }
       _ => Err(EdnDeserializerError(format!(
         "Cannot deserialize Edn type: {:?}",
         self.value

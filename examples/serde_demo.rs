@@ -8,6 +8,7 @@
 #![allow(clippy::uninlined_format_args)]
 
 use cirru_edn::{from_edn, to_edn, Edn, EdnRecordView, EdnTag};
+use cirru_parser::Cirru;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -45,6 +46,12 @@ struct PersonWithSpecialFields {
   skill_level: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CodeEntry {
+  pub doc: String,
+  pub code: Cirru,
+}
+
 fn main() -> Result<(), String> {
   println!("=== Cirru EDN Serde Support Demo ===\n");
 
@@ -65,6 +72,9 @@ fn main() -> Result<(), String> {
 
   // 6. Record deserialization demo (new feature)
   demo_record_deserialization()?;
+
+  // 7. Cirru code entry demo with Quote deserialization
+  demo_code_entry_with_quote()?;
 
   println!("🎉 All demonstrations completed successfully!");
   Ok(())
@@ -284,6 +294,160 @@ fn demo_record_deserialization() -> Result<(), String> {
   println!("{:#?}\n", grace);
 
   println!("✅ Record deserialization successful!\n");
+
+  Ok(())
+}
+
+/// Demonstrates Cirru code entry with Quote deserialization
+/// Shows how Cirru code can be directly serialized and deserialized in struct fields
+fn demo_code_entry_with_quote() -> Result<(), String> {
+  println!("7. Cirru code entry with Quote deserialization demo...");
+
+  // Create CodeEntry with simple Cirru code
+  let simple_entry = CodeEntry {
+    doc: "Simple greeting function".to_string(),
+    code: Cirru::List(vec![
+      Cirru::Leaf("println!".into()),
+      Cirru::Leaf("\"Hello, world!\"".into()),
+    ]),
+  };
+
+  println!("Original simple CodeEntry:");
+  println!("{:#?}\n", simple_entry);
+
+  // Serialize and deserialize
+  let serialized = to_edn(&simple_entry)?;
+  println!("Serialized CodeEntry:");
+  println!("{}\n", serialized);
+
+  let deserialized: CodeEntry = from_edn(serialized)?;
+  println!("Deserialized CodeEntry:");
+  println!("{:#?}\n", deserialized);
+
+  if simple_entry == deserialized {
+    println!("✅ Simple CodeEntry round-trip successful!");
+  } else {
+    println!("❌ Simple CodeEntry round-trip failed!");
+    return Err("Simple CodeEntry round-trip failed".to_string());
+  }
+
+  // Create CodeEntry with complex nested Cirru code
+  let complex_entry = CodeEntry {
+    doc: "Factorial function with recursion".to_string(),
+    code: Cirru::List(vec![
+      Cirru::Leaf("defn".into()),
+      Cirru::Leaf("factorial".into()),
+      Cirru::List(vec![Cirru::Leaf("n".into())]),
+      Cirru::List(vec![
+        Cirru::Leaf("if".into()),
+        Cirru::List(vec![
+          Cirru::Leaf("<=".into()),
+          Cirru::Leaf("n".into()),
+          Cirru::Leaf("1".into()),
+        ]),
+        Cirru::Leaf("1".into()),
+        Cirru::List(vec![
+          Cirru::Leaf("*".into()),
+          Cirru::Leaf("n".into()),
+          Cirru::List(vec![
+            Cirru::Leaf("factorial".into()),
+            Cirru::List(vec![
+              Cirru::Leaf("-".into()),
+              Cirru::Leaf("n".into()),
+              Cirru::Leaf("1".into()),
+            ]),
+          ]),
+        ]),
+      ]),
+    ]),
+  };
+
+  println!("Original complex CodeEntry:");
+  println!("{:#?}\n", complex_entry);
+
+  let complex_serialized = to_edn(&complex_entry)?;
+  println!("Serialized complex CodeEntry:");
+  println!("{}\n", complex_serialized);
+
+  let complex_deserialized: CodeEntry = from_edn(complex_serialized)?;
+  println!("Deserialized complex CodeEntry:");
+  println!("{:#?}\n", complex_deserialized);
+
+  if complex_entry == complex_deserialized {
+    println!("✅ Complex CodeEntry round-trip successful!");
+  } else {
+    println!("❌ Complex CodeEntry round-trip failed!");
+    return Err("Complex CodeEntry round-trip failed".to_string());
+  }
+
+  // Demonstrate collection of CodeEntry
+  #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+  struct CodeLibrary {
+    name: String,
+    entries: Vec<CodeEntry>,
+  }
+
+  let library = CodeLibrary {
+    name: "Basic Functions".to_string(),
+    entries: vec![
+      simple_entry.clone(),
+      complex_entry.clone(),
+      CodeEntry {
+        doc: "Add two numbers".to_string(),
+        code: Cirru::List(vec![
+          Cirru::Leaf("fn".into()),
+          Cirru::Leaf("add".into()),
+          Cirru::List(vec![Cirru::Leaf("a".into()), Cirru::Leaf("b".into())]),
+          Cirru::List(vec![
+            Cirru::Leaf("+".into()),
+            Cirru::Leaf("a".into()),
+            Cirru::Leaf("b".into()),
+          ]),
+        ]),
+      },
+    ],
+  };
+
+  println!("Original CodeLibrary:");
+  println!("{:#?}\n", library);
+
+  let library_serialized = to_edn(&library)?;
+  println!("Serialized CodeLibrary:");
+  println!("{}\n", library_serialized);
+
+  let library_deserialized: CodeLibrary = from_edn(library_serialized)?;
+  println!("Deserialized CodeLibrary:");
+  println!("{:#?}\n", library_deserialized);
+
+  if library == library_deserialized {
+    println!("✅ CodeLibrary round-trip successful!");
+  } else {
+    println!("❌ CodeLibrary round-trip failed!");
+    return Err("CodeLibrary round-trip failed".to_string());
+  }
+
+  // Demonstrate Quote integration - create EDN Quote and deserialize to CodeEntry
+  println!("Testing Quote to CodeEntry conversion...");
+  let quote_code = Edn::Quote(Cirru::List(vec![
+    Cirru::Leaf("map".into()),
+    Cirru::Leaf("inc".into()),
+    Cirru::List(vec![Cirru::Leaf("range".into()), Cirru::Leaf("10".into())]),
+  ]));
+
+  // Create a manual EDN with Quote that should deserialize to CodeEntry
+  let manual_entry_edn = Edn::map_from_iter([
+    (Edn::tag("doc"), "Map increment over range".into()),
+    (Edn::tag("code"), quote_code), // Cirru EDN 当中在 code 字段中直接使用 Quote
+  ]);
+
+  println!("Manual EDN for CodeEntry with Quote-derived code:");
+  println!("{}\n", manual_entry_edn);
+
+  let manual_entry: CodeEntry = from_edn(manual_entry_edn)?;
+  println!("CodeEntry from manual EDN with Quote:");
+  println!("{:#?}\n", manual_entry);
+
+  println!("✅ Code entry with Quote deserialization successful!\n");
 
   Ok(())
 }
