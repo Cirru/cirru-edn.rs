@@ -54,6 +54,7 @@ use serde::{
 };
 
 use crate::{Edn, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTag, EdnTupleView};
+use cirru_parser::Cirru;
 
 impl Serialize for Edn {
   fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -75,7 +76,11 @@ impl Serialize for Edn {
         map.end()
       }
       Edn::Str(s) => serializer.serialize_str(s),
-      Edn::Quote(_) => Err(ser::Error::custom("Quote type cannot be serialized")),
+      Edn::Quote(cirru) => {
+        let mut map = serializer.serialize_map(Some(1))?;
+        map.serialize_entry("__edn_quote", &cirru_to_serializable(cirru))?;
+        map.end()
+      }
       Edn::Tuple(EdnTupleView { tag, extra }) => {
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("__edn_tuple_tag", tag.as_ref())?;
@@ -305,6 +310,15 @@ impl<'de> Deserialize<'de> for Edn {
                   Err(de::Error::custom("Invalid atom data"))
                 }
               }
+              "__edn_quote" => {
+                if let Some(cirru_data) = special_data.get("__edn_quote") {
+                  let cirru = serializable_to_cirru(cirru_data)
+                    .map_err(|e| de::Error::custom(format!("Invalid quote data: {}", e)))?;
+                  Ok(Edn::Quote(cirru))
+                } else {
+                  Err(de::Error::custom("Invalid quote data"))
+                }
+              }
               _ => Err(de::Error::custom(format!("Unknown special type: {}", stype))),
             }
           } else {
@@ -460,6 +474,32 @@ fn edn_to_json_value(value: Edn) -> Result<serde_json::Value, String> {
   }
 }
 
+/// Convert a Cirru value to a serializable representation (nested arrays and strings)
+fn cirru_to_serializable(cirru: &Cirru) -> serde_json::Value {
+  match cirru {
+    Cirru::Leaf(s) => serde_json::Value::String(s.as_ref().to_string()),
+    Cirru::List(items) => {
+      let serialized_items: Vec<serde_json::Value> = items.iter().map(cirru_to_serializable).collect();
+      serde_json::Value::Array(serialized_items)
+    }
+  }
+}
+
+/// Convert a serializable representation back to Cirru
+fn serializable_to_cirru(value: &Edn) -> Result<Cirru, String> {
+  match value {
+    Edn::Str(s) => Ok(Cirru::Leaf(s.as_ref().into())),
+    Edn::List(EdnListView(items)) => {
+      let mut cirru_items = Vec::new();
+      for item in items {
+        cirru_items.push(serializable_to_cirru(item)?);
+      }
+      Ok(Cirru::List(cirru_items))
+    }
+    _ => Err(format!("Invalid Cirru representation: {:?}", value)),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -535,5 +575,55 @@ mod tests {
     let reconstructed: TestStruct = from_edn(edn_value).unwrap();
 
     assert_eq!(original, reconstructed);
+  }
+
+  #[test]
+  fn test_quote_serialization() {
+    use cirru_parser::Cirru;
+
+    // Test simple quoted string
+    let quote_str = Edn::Quote(Cirru::Leaf("hello".into()));
+    let serialized = to_edn(&quote_str).unwrap();
+    let deserialized: Edn = from_edn(serialized).unwrap();
+
+    if let Edn::Quote(cirru) = &deserialized {
+      if let Cirru::Leaf(s) = cirru {
+        assert_eq!(s.as_ref(), "hello");
+      } else {
+        panic!("Expected Cirru::Leaf");
+      }
+    } else {
+      panic!("Expected Edn::Quote");
+    }
+
+    // Test quoted list structure
+    let quote_list = Edn::Quote(Cirru::List(vec![
+      Cirru::Leaf("fn".into()),
+      Cirru::Leaf("add".into()),
+      Cirru::List(vec![Cirru::Leaf("a".into()), Cirru::Leaf("b".into())]),
+      Cirru::List(vec![
+        Cirru::Leaf("+".into()),
+        Cirru::Leaf("a".into()),
+        Cirru::Leaf("b".into()),
+      ]),
+    ]));
+
+    let serialized = to_edn(&quote_list).unwrap();
+    let deserialized: Edn = from_edn(serialized).unwrap();
+
+    if let Edn::Quote(cirru) = &deserialized {
+      if let Cirru::List(items) = cirru {
+        assert_eq!(items.len(), 4);
+        if let Cirru::Leaf(s) = &items[0] {
+          assert_eq!(s.as_ref(), "fn");
+        } else {
+          panic!("Expected first item to be Cirru::Leaf");
+        }
+      } else {
+        panic!("Expected Cirru::List");
+      }
+    } else {
+      panic!("Expected Edn::Quote");
+    }
   }
 }
