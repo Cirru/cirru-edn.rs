@@ -33,11 +33,11 @@ fn main() -> Result<(), String> {
 
   // Manual Edn construction example
   let edn_data = Edn::map_from_iter([
-    ("name".into(), "Bob".into()),
-    ("age".into(), Edn::Number(25.0)),
-    ("email".into(), Edn::Nil),
+    (Edn::tag("name"), "Bob".into()),
+    (Edn::tag("age"), Edn::Number(25.0)),
+    (Edn::tag("email"), Edn::Nil),
     (
-      "tags".into(),
+      Edn::tag("tags"),
       vec!["junior".to_string(), "javascript".to_string()].into(),
     ),
   ]);
@@ -47,7 +47,7 @@ fn main() -> Result<(), String> {
 
   // Error handling example
   let incomplete_edn = Edn::map_from_iter([
-    ("name".into(), "Invalid".into()),
+    (Edn::tag("name"), "Invalid".into()),
     // Missing required age field
   ]);
 

@@ -84,11 +84,11 @@ fn main() -> Result<(), String> {
   // Demonstrate manual Edn construction
   println!("4. Manual Edn construction and conversion...");
   let manual_person = Edn::map_from_iter([
-    ("name".into(), "Charlie".into()),
-    ("age".into(), Edn::Number(35.0)),
-    ("email".into(), "charlie@company.com".into()),
-    ("tags".into(), vec!["staff".to_string(), "python".to_string()].into()),
-    ("scores".into(), {
+    (Edn::tag("name"), "Charlie".into()),
+    (Edn::tag("age"), Edn::Number(35.0)),
+    (Edn::tag("email"), "charlie@company.com".into()),
+    (Edn::tag("tags"), vec!["staff".to_string(), "python".to_string()].into()),
+    (Edn::tag("scores"), {
       let mut scores = HashMap::new();
       scores.insert(Edn::Str("performance".into()), Edn::Number(4.1));
       scores.insert(Edn::Str("teamwork".into()), Edn::Number(4.7));
@@ -103,7 +103,7 @@ fn main() -> Result<(), String> {
   // Demonstrate error handling
   println!("5. Error handling example...");
   let incomplete_edn = Edn::map_from_iter([
-    ("name".into(), "Invalid".into()),
+    (Edn::tag("name"), "Invalid".into()),
     // Missing required fields
   ]);
 

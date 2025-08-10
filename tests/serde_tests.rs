@@ -107,13 +107,13 @@ fn test_option_handling() {
 
 #[test]
 fn test_manual_edn_to_struct() {
-  // Create an Edn map manually
+  // Create an Edn map manually using Tags for struct fields
   let edn_map = Edn::map_from_iter([
-    ("name".into(), "Charlie".into()),
-    ("age".into(), 35i64.into()),
-    ("is_active".into(), true.into()),
-    ("scores".into(), vec![95.0, 87.5, 91.0].into()),
-    ("metadata".into(), {
+    (Edn::tag("name"), "Charlie".into()),
+    (Edn::tag("age"), 35i64.into()),
+    (Edn::tag("is_active"), true.into()),
+    (Edn::tag("scores"), vec![95.0, 87.5, 91.0].into()),
+    (Edn::tag("metadata"), {
       let mut meta = HashMap::new();
       meta.insert(Edn::Str("title".into()), Edn::Str("Senior Engineer".into()));
       Edn::Map(cirru_edn::EdnMapView(meta))
@@ -133,7 +133,7 @@ fn test_manual_edn_to_struct() {
 fn test_error_handling() {
   // Create an invalid Edn structure (missing required fields)
   let incomplete_edn = Edn::map_from_iter([
-    ("name".into(), "John".into()),
+    (Edn::tag("name"), "John".into()),
     // Missing age, is_active, scores, metadata
   ]);
 
