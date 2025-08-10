@@ -1,6 +1,9 @@
 mod edn;
 mod tag;
 
+#[cfg(feature = "serde")]
+pub mod serde_support;
+
 use std::cmp::Ordering::*;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
@@ -13,6 +16,9 @@ pub use edn::{
   is_simple_char, DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView,
 };
 pub use tag::EdnTag;
+
+#[cfg(feature = "serde")]
+pub use serde_support::{from_edn, to_edn};
 
 /// parse Cirru code into data
 pub fn parse(s: &str) -> Result<Edn, String> {

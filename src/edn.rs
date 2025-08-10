@@ -696,6 +696,18 @@ impl From<usize> for Edn {
   }
 }
 
+impl From<i32> for Edn {
+  fn from(x: i32) -> Self {
+    Edn::Number(x as f64)
+  }
+}
+
+impl From<&i32> for Edn {
+  fn from(x: &i32) -> Self {
+    Edn::Number(*x as f64)
+  }
+}
+
 impl TryFrom<Edn> for u8 {
   type Error = String;
   fn try_from(x: Edn) -> Result<Self, Self::Error> {

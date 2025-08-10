@@ -12,6 +12,8 @@
 cargo add cirru_edn
 ```
 
+Basic parsing and formatting:
+
 ```rust
 use cirru_edn::Edn;
 
@@ -19,6 +21,93 @@ cirru_edn::parse("[] 1 2 true"); // Result<Edn, String>
 
 cirru_edn::format(data, /* use_inline */ true); // Result<String, String>.
 ```
+
+### Serde Integration
+
+Cirru EDN provides seamless integration with serde, allowing you to easily convert between Rust structs and EDN data, similar to how you would use `serde_json`.
+
+#### Basic Usage
+
+```rust
+use cirru_edn::{to_edn, from_edn};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+struct Person {
+    name: String,
+    age: u32,
+    email: Option<String>,
+    tags: Vec<String>,
+}
+
+let person = Person {
+    name: "Alice".to_string(),
+    age: 30,
+    email: Some("alice@example.com".to_string()),
+    tags: vec!["developer".to_string(), "rust".to_string()],
+};
+
+// Convert struct to Edn
+let edn_value = to_edn(&person).unwrap();
+println!("EDN: {}", edn_value);
+// Output: ({} (|name |Alice) (|age 30) (|email "|alice@example.com") (|tags ([] |developer |rust)))
+
+// Convert Edn back to struct
+let reconstructed: Person = from_edn(edn_value).unwrap();
+assert_eq!(person, reconstructed);
+```
+
+#### Supported Data Types
+
+- **Primitive types**: `bool`, `i32`, `i64`, `u32`, `u64`, `f32`, `f64`, `String`
+- **Container types**: `Vec<T>`, `HashMap<K, V>`, `HashSet<T>`
+- **Optional types**: `Option<T>` (maps to `Edn::Nil` or the actual value)
+- **Nested structures**: Arbitrarily deep nested structs
+
+#### Manual Edn Construction
+
+You can also manually construct Edn data and then deserialize it to structs:
+
+```rust
+use cirru_edn::{Edn, from_edn};
+use std::collections::HashMap;
+
+let edn_data = Edn::map_from_iter([
+    ("name".into(), "Bob".into()),
+    ("age".into(), Edn::Number(25.0)),
+    ("email".into(), Edn::Nil),
+    ("tags".into(), vec!["junior".to_string(), "javascript".to_string()].into()),
+]);
+
+let person: Person = from_edn(edn_data).unwrap();
+println!("{:?}", person);
+```
+
+#### Error Handling
+
+When deserialization fails (e.g., missing required fields or type mismatches), descriptive error messages are returned:
+
+```rust
+let incomplete_edn = Edn::map_from_iter([
+    ("name".into(), "Invalid".into()),
+    // Missing required age field
+]);
+
+match from_edn::<Person>(incomplete_edn) {
+    Ok(person) => println!("Success: {:?}", person),
+    Err(e) => println!("Error: {}", e), // Error: missing field `age`
+}
+```
+
+#### Complex Examples
+
+See `examples/serde_demo.rs` for more complex nested structures and usage patterns.
+
+#### Limitations
+
+- Some special Edn types (like `Quote`, `AnyRef`) cannot be serialized
+- Map keys must be strings when converting to JSON-compatible format
+- Maps with complex keys will use their string representation
 
 ### EDN Format
 
