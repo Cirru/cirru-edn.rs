@@ -579,6 +579,145 @@ impl Edn {
       a => Err(format!("failed to convert to tuple: {a}")),
     }
   }
+
+  // Additional convenience methods for better Rust API style
+
+  /// Check if the value is nil
+  pub fn is_nil(&self) -> bool {
+    matches!(self, Edn::Nil)
+  }
+
+  /// Check if the value is a boolean
+  pub fn is_bool(&self) -> bool {
+    matches!(self, Edn::Bool(_))
+  }
+
+  /// Check if the value is a number
+  pub fn is_number(&self) -> bool {
+    matches!(self, Edn::Number(_))
+  }
+
+  /// Check if the value is a string
+  pub fn is_string(&self) -> bool {
+    matches!(self, Edn::Str(_))
+  }
+
+  /// Check if the value is a symbol
+  pub fn is_symbol(&self) -> bool {
+    matches!(self, Edn::Symbol(_))
+  }
+
+  /// Check if the value is a tag
+  pub fn is_tag(&self) -> bool {
+    matches!(self, Edn::Tag(_))
+  }
+
+  /// Check if the value is a list
+  pub fn is_list(&self) -> bool {
+    matches!(self, Edn::List(_))
+  }
+
+  /// Check if the value is a set
+  pub fn is_set(&self) -> bool {
+    matches!(self, Edn::Set(_))
+  }
+
+  /// Check if the value is a map
+  pub fn is_map(&self) -> bool {
+    matches!(self, Edn::Map(_))
+  }
+
+  /// Check if the value is a record
+  pub fn is_record(&self) -> bool {
+    matches!(self, Edn::Record(_))
+  }
+
+  /// Check if the value is a tuple
+  pub fn is_tuple(&self) -> bool {
+    matches!(self, Edn::Tuple(_))
+  }
+
+  /// Check if the value is a buffer
+  pub fn is_buffer(&self) -> bool {
+    matches!(self, Edn::Buffer(_))
+  }
+
+  /// Check if the value is an atom
+  pub fn is_atom(&self) -> bool {
+    matches!(self, Edn::Atom(_))
+  }
+
+  /// Check if the value is an any-ref
+  pub fn is_any_ref(&self) -> bool {
+    matches!(self, Edn::AnyRef(_))
+  }
+
+  /// Get the type name as a string for debugging/display purposes
+  pub fn type_name(&self) -> &'static str {
+    match self {
+      Edn::Nil => "nil",
+      Edn::Bool(_) => "bool",
+      Edn::Number(_) => "number",
+      Edn::Symbol(_) => "symbol",
+      Edn::Tag(_) => "tag",
+      Edn::Str(_) => "string",
+      Edn::Quote(_) => "quote",
+      Edn::Tuple(_) => "tuple",
+      Edn::List(_) => "list",
+      Edn::Set(_) => "set",
+      Edn::Map(_) => "map",
+      Edn::Record(_) => "record",
+      Edn::Buffer(_) => "buffer",
+      Edn::AnyRef(_) => "any-ref",
+      Edn::Atom(_) => "atom",
+    }
+  }
+
+  /// Create an empty list
+  pub fn empty_list() -> Self {
+    Edn::List(EdnListView::default())
+  }
+
+  /// Create an empty map
+  pub fn empty_map() -> Self {
+    Edn::Map(EdnMapView::default())
+  }
+
+  /// Create an empty set
+  pub fn empty_set() -> Self {
+    Edn::Set(EdnSetView::default())
+  }
+
+  /// Try to access list item by index (returns None for non-lists or out-of-bounds)
+  pub fn get_list_item(&self, index: usize) -> Option<&Edn> {
+    match self {
+      Edn::List(list) => list.0.get(index),
+      _ => None,
+    }
+  }
+
+  /// Try to access map value by key (returns None for non-maps or missing keys)
+  pub fn get_map_value(&self, key: &Edn) -> Option<&Edn> {
+    match self {
+      Edn::Map(map) => map.0.get(key),
+      _ => None,
+    }
+  }
+
+  /// Try to access record field by tag (returns None for non-records or missing fields)
+  pub fn get_record_field(&self, field: &EdnTag) -> Option<&Edn> {
+    match self {
+      Edn::Record(record) => {
+        for (tag, value) in &record.pairs {
+          if tag == field {
+            return Some(value);
+          }
+        }
+        None
+      }
+      _ => None,
+    }
+  }
 }
 
 impl TryFrom<Edn> for EdnTag {

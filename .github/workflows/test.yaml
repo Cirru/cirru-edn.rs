@@ -30,7 +30,5 @@ jobs:
       - name: Test all features
         run: cargo test --all-features
 
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+      - name: Clippy check
+        run: cargo clippy --all-features -- -D warnings

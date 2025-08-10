@@ -12,6 +12,7 @@
 //! - **Serde integration**: Seamless serialization/deserialization with Rust structs (requires enabling the `serde` feature)
 //! - **Efficient string handling**: Uses `Arc<str>` for string deduplication
 //! - **Runtime references**: Support for arbitrary Rust data via `AnyRef`
+//! - **Type-safe API**: Strong typing with convenient conversion methods
 //!
 //! ## Basic Usage
 //!
@@ -29,6 +30,54 @@
 //!
 //! // Format back to string
 //! let formatted = format(&map, true).unwrap();
+//! ```
+//!
+//! ## Type Checking and Conversion
+//!
+//! The library provides type-safe methods for checking and converting values:
+//!
+//! ```rust
+//! use cirru_edn::Edn;
+//!
+//! let value = Edn::Number(42.0);
+//! 
+//! // Type checking
+//! assert!(value.is_number());
+//! assert!(!value.is_string());
+//!
+//! // Safe conversion
+//! let number: f64 = value.read_number().unwrap();
+//! assert_eq!(number, 42.0);
+//!
+//! // Get type name for debugging
+//! assert_eq!(value.type_name(), "number");
+//! ```
+//!
+//! ## Working with Collections
+//!
+//! ```rust
+//! use cirru_edn::Edn;
+//!
+//! // Create and access lists
+//! let list = Edn::List(vec![
+//!     Edn::Number(1.0),
+//!     Edn::str("hello"),
+//!     Edn::Bool(true)
+//! ].into());
+//!
+//! if let Some(first) = list.get_list_item(0) {
+//!     assert_eq!(first.read_number().unwrap(), 1.0);
+//! }
+//!
+//! // Create and access maps
+//! let map = Edn::map_from_iter([
+//!     (Edn::tag("name"), Edn::str("Bob")),
+//!     (Edn::tag("age"), Edn::Number(25.0)),
+//! ]);
+//!
+//! if let Some(name) = map.get_map_value(&Edn::tag("name")) {
+//!     assert_eq!(name.read_string().unwrap(), "Bob");
+//! }
 //! ```
 //!
 //! ## Serde Integration
@@ -78,6 +127,28 @@ pub use edn::{
   is_simple_char, DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView,
 };
 pub use tag::EdnTag;
+
+// Re-export important error types for better error handling
+pub type EdnResult<T> = Result<T, String>;
+
+// Convenience type aliases for common patterns
+pub type EdnList = EdnListView;
+pub type EdnMap = EdnMapView; 
+pub type EdnSet = EdnSetView;
+pub type EdnRecord = EdnRecordView;
+pub type EdnTuple = EdnTupleView;
+
+// Common constants for convenience
+impl Edn {
+  /// Predefined nil constant for convenience
+  pub const NIL: Edn = Edn::Nil;
+  
+  /// Predefined true constant for convenience  
+  pub const TRUE: Edn = Edn::Bool(true);
+  
+  /// Predefined false constant for convenience
+  pub const FALSE: Edn = Edn::Bool(false);
+}
 
 #[cfg(feature = "serde")]
 pub use serde_support::{from_edn, to_edn};

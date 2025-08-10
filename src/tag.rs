@@ -84,6 +84,33 @@ impl EdnTag {
   pub fn ref_str(&self) -> &str {
     &self.0
   }
+
+  /// Check if the tag matches a string slice.
+  ///
+  /// This is more efficient than converting the tag to a string.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use cirru_edn::EdnTag;
+  ///
+  /// let tag = EdnTag::new("status");
+  /// assert!(tag.matches("status"));
+  /// assert!(!tag.matches("other"));
+  /// ```
+  pub fn matches(&self, s: &str) -> bool {
+    self.0.as_ref() == s
+  }
+
+  /// Get the length of the tag string.
+  pub fn len(&self) -> usize {
+    self.0.len()
+  }
+
+  /// Check if the tag is empty.
+  pub fn is_empty(&self) -> bool {
+    self.0.is_empty()
+  }
 }
 
 impl Ord for EdnTag {

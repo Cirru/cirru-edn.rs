@@ -1,9 +1,12 @@
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 
+#[cfg(feature = "serde")]
 use cirru_edn::{from_edn, to_edn, Edn};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 struct Person {
   name: String,
@@ -12,6 +15,7 @@ struct Person {
   tags: Vec<String>,
 }
 
+#[cfg(feature = "serde")]
 fn main() -> Result<(), String> {
   // Test the README examples
 
@@ -58,4 +62,10 @@ fn main() -> Result<(), String> {
 
   println!("All README examples work correctly!");
   Ok(())
+}
+
+#[cfg(not(feature = "serde"))]
+fn main() {
+    println!("This example requires the 'serde' feature to be enabled.");
+    println!("Run with: cargo run --example readme_test --features serde");
 }
