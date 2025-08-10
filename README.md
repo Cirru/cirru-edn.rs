@@ -122,10 +122,40 @@ match from_edn::<Person>(incomplete_edn) {
 
 See `examples/serde_demo.rs` for more complex nested structures and usage patterns.
 
+#### Record Deserialization
+
+Cirru EDN supports Record types with named tags, which can be deserialized to Rust structs. During deserialization, the record name is ignored since Rust structs don't expose their type names at runtime:
+
+```rust
+use cirru_edn::{Edn, EdnRecordView, EdnTag, from_edn};
+
+// Create a Record with a named type
+let person_record = Edn::Record(EdnRecordView {
+    tag: EdnTag::new("PersonRecord"),  // This name will be ignored during deserialization
+    pairs: vec![
+        (EdnTag::new("name"), "Frank".into()),
+        (EdnTag::new("age"), Edn::Number(42.0)),
+        (EdnTag::new("email"), "frank@example.com".into()),
+    ],
+});
+
+// Deserialize Record to struct (ignoring the record name)
+let person: Person = from_edn(person_record).unwrap();
+println!("{:?}", person);
+
+// Note: When serializing structs back to EDN, they become Maps, not Records
+// since Rust doesn't provide struct names at runtime
+let edn_back = to_edn(&person).unwrap();
+// This will be a Map, not a Record
+```
+
+This feature allows interoperability between EDN data containing Records and Rust structs, with the semantic understanding that record names are metadata that may be lost during round-trip conversion.
+
 #### Limitations
 
 - Some special Edn types (like `Quote`, `AnyRef`) cannot be serialized
 - Maps with complex keys will use their string representation when serializing structs
+- Record names are ignored during deserialization and structs serialize to Maps, not Records
 
 ### EDN Format
 

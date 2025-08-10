@@ -1003,7 +1003,16 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
   {
     match self.value {
       Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
-      _ => Err(EdnDeserializerError("Expected map".to_string())),
+      // Support Record deserialization to Map/Struct by ignoring the record name
+      Edn::Record(EdnRecordView { tag: _, pairs }) => {
+        // Convert Record pairs to Map format for struct deserialization
+        let mut map = HashMap::new();
+        for (key, value) in pairs {
+          map.insert(Edn::Tag(key), value);
+        }
+        visitor.visit_map(EdnMapDeserializer::new(map.into_iter()))
+      }
+      _ => Err(EdnDeserializerError("Expected map or record".to_string())),
     }
   }
 
@@ -1016,7 +1025,19 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
   where
     V: Visitor<'de>,
   {
-    self.deserialize_map(visitor)
+    match self.value {
+      Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
+      // Support Record deserialization to struct by ignoring the record name
+      Edn::Record(EdnRecordView { tag: _, pairs }) => {
+        // Convert Record pairs to Map format for struct deserialization
+        let mut map = HashMap::new();
+        for (key, value) in pairs {
+          map.insert(Edn::Tag(key), value);
+        }
+        visitor.visit_map(EdnMapDeserializer::new(map.into_iter()))
+      }
+      _ => Err(EdnDeserializerError("Expected map or record for struct".to_string())),
+    }
   }
 
   fn deserialize_enum<V>(

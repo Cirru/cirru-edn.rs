@@ -1,12 +1,13 @@
 //! # Serde Demo
 //!
 //! This example demonstrates basic serde integration with Cirru EDN,
-//! including serialization, deserialization, error handling, and manual EDN construction.
+//! including serialization, deserialization, error handling, manual EDN construction,
+//! and special handling of Cirru EDN Records.
 
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 
-use cirru_edn::{from_edn, to_edn, Edn};
+use cirru_edn::{from_edn, to_edn, Edn, EdnRecordView, EdnTag};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -47,6 +48,30 @@ struct PersonWithSpecialFields {
 fn main() -> Result<(), String> {
   println!("=== Cirru EDN Serde Support Demo ===\n");
 
+  // 1. Basic round-trip conversion demo
+  demo_basic_roundtrip()?;
+
+  // 2. Manual Edn construction demo
+  demo_manual_construction()?;
+
+  // 3. Error handling demo
+  demo_error_handling()?;
+
+  // 4. Special field names with serde rename demo
+  demo_special_field_names()?;
+
+  // 5. Manual construction with hyphenated field names demo
+  demo_manual_hyphenated_fields()?;
+
+  // 6. Record deserialization demo (new feature)
+  demo_record_deserialization()?;
+
+  println!("🎉 All demonstrations completed successfully!");
+  Ok(())
+}
+
+/// Demonstrates basic struct to Edn conversion and back
+fn demo_basic_roundtrip() -> Result<(), String> {
   // Create a complex nested structure
   let dept = Department {
     name: "Engineering".to_string(),
@@ -98,7 +123,11 @@ fn main() -> Result<(), String> {
     return Err("Round-trip conversion failed".to_string());
   }
 
-  // Demonstrate manual Edn construction
+  Ok(())
+}
+
+/// Demonstrates manual Edn construction and conversion
+fn demo_manual_construction() -> Result<(), String> {
   println!("4. Manual Edn construction and conversion...");
   let manual_person = Edn::map_from_iter([
     (Edn::tag("name"), "Charlie".into()),
@@ -117,7 +146,11 @@ fn main() -> Result<(), String> {
   println!("Charlie from manual Edn:");
   println!("{:#?}\n", charlie);
 
-  // Demonstrate error handling
+  Ok(())
+}
+
+/// Demonstrates error handling when deserializing incomplete data
+fn demo_error_handling() -> Result<(), String> {
   println!("5. Error handling example...");
   let incomplete_edn = Edn::map_from_iter([
     (Edn::tag("name"), "Invalid".into()),
@@ -129,7 +162,11 @@ fn main() -> Result<(), String> {
     Err(e) => println!("Expected error: {}\n", e),
   }
 
-  // Demonstrate special field names with serde rename
+  Ok(())
+}
+
+/// Demonstrates special field names with serde rename
+fn demo_special_field_names() -> Result<(), String> {
   println!("6. Special field names with serde rename...");
   let special_person = PersonWithSpecialFields {
     name: "David".to_string(),
@@ -162,7 +199,11 @@ fn main() -> Result<(), String> {
     return Err("Special field names round-trip failed".to_string());
   }
 
-  // Manual construction with special field names
+  Ok(())
+}
+
+/// Demonstrates manual construction with hyphenated field names
+fn demo_manual_hyphenated_fields() -> Result<(), String> {
   println!("7. Manual construction with hyphenated field names...");
   let manual_special = Edn::map_from_iter([
     (Edn::tag("name"), "Emma".into()),
@@ -178,6 +219,71 @@ fn main() -> Result<(), String> {
   println!("Emma from manual EDN with hyphenated fields:");
   println!("{:#?}\n", emma);
 
-  println!("🎉 All demonstrations completed successfully!");
+  Ok(())
+}
+
+/// Demonstrates Cirru EDN Record deserialization
+/// Records in Cirru EDN have named types, but Rust structs don't expose their name at runtime.
+/// This demo shows how Records can be deserialized to structs by ignoring the record name.
+fn demo_record_deserialization() -> Result<(), String> {
+  println!("8. Cirru EDN Record deserialization demo...");
+
+  // Create a record manually - this represents what might come from EDN text parsing
+  let person_record = Edn::Record(EdnRecordView {
+    tag: EdnTag::new("PersonRecord"), // This name will be ignored during deserialization
+    pairs: vec![
+      (EdnTag::new("name"), "Frank".into()),
+      (EdnTag::new("age"), Edn::Number(42.0)),
+      (EdnTag::new("email"), "frank@company.com".into()),
+      (
+        EdnTag::new("tags"),
+        vec!["manager".to_string(), "leadership".to_string()].into(),
+      ),
+      (EdnTag::new("scores"), {
+        let mut scores = HashMap::new();
+        scores.insert(Edn::Str("strategic".into()), Edn::Number(4.8));
+        scores.insert(Edn::Str("communication".into()), Edn::Number(4.5));
+        Edn::Map(cirru_edn::EdnMapView(scores))
+      }),
+    ],
+  });
+
+  println!("Original EDN Record:");
+  println!("{}\n", person_record);
+
+  // Deserialize Record to Person struct (ignoring the record name)
+  let frank: Person = from_edn(person_record)?;
+  println!("Person deserialized from Record:");
+  println!("{:#?}\n", frank);
+
+  // Demonstrate that serialization goes to Map, not Record
+  // (since Rust structs don't expose their type name at runtime)
+  let frank_edn = to_edn(&frank)?;
+  println!("Person serialized back to EDN (becomes Map, not Record):");
+  println!("{}\n", frank_edn);
+
+  // Also demonstrate special fields with records
+  let special_record = Edn::Record(EdnRecordView {
+    tag: EdnTag::new("SpecialPersonRecord"),
+    pairs: vec![
+      (EdnTag::new("name"), "Grace".into()),
+      (EdnTag::new("age"), Edn::Number(29.0)),
+      (EdnTag::new("first-name"), "Grace".into()),
+      (EdnTag::new("last-name"), "Kim".into()),
+      (EdnTag::new("is-active"), true.into()),
+      (EdnTag::new("email-address"), "grace.kim@company.com".into()),
+      (EdnTag::new("skill-level"), Edn::Number(7.0)),
+    ],
+  });
+
+  println!("Special fields Record:");
+  println!("{}\n", special_record);
+
+  let grace: PersonWithSpecialFields = from_edn(special_record)?;
+  println!("PersonWithSpecialFields from Record:");
+  println!("{:#?}\n", grace);
+
+  println!("✅ Record deserialization successful!\n");
+
   Ok(())
 }
