@@ -3,7 +3,7 @@
 //! This example demonstrates the important distinction between Tags and Strings
 //! in Cirru EDN's serde implementation.
 
-use cirru_edn::{from_edn, to_edn, Edn, EdnMapView, EdnTag};
+use cirru_edn::{Edn, EdnMapView, EdnTag, from_edn, to_edn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -84,7 +84,7 @@ fn main() -> Result<(), String> {
     // Analyze nested attributes map
     if let Some(attributes_edn) = map.0.get(&Edn::Tag(EdnTag::new("attributes"))) {
       println!("\nNested 'attributes' map keys:");
-      if let Edn::Map(ref attr_map) = attributes_edn {
+      if let Edn::Map(attr_map) = attributes_edn {
         for key in attr_map.0.keys() {
           match key {
             Edn::Tag(tag) => {
@@ -104,7 +104,7 @@ fn main() -> Result<(), String> {
     // Analyze nested contact struct
     if let Some(contact_edn) = map.0.get(&Edn::Tag(EdnTag::new("contact"))) {
       println!("\nNested 'contact' struct fields:");
-      if let Edn::Map(ref contact_map) = contact_edn {
+      if let Edn::Map(contact_map) = contact_edn {
         for key in contact_map.0.keys() {
           match key {
             Edn::Tag(tag) => {

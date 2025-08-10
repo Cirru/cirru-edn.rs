@@ -1,6 +1,6 @@
 #![allow(clippy::mutable_key_type)]
 
-use cirru_edn::{from_edn, to_edn, Edn};
+use cirru_edn::{Edn, from_edn, to_edn};
 use cirru_parser::Cirru;
 use serde::{Deserialize, Serialize};
 
@@ -169,7 +169,7 @@ fn test_quote_serialization_becomes_regular_cirru() {
         panic!("Code should not be serialized as Quote when coming from struct field");
       }
       other => {
-        panic!("Unexpected code value type: {:?}", other);
+        panic!("Unexpected code value type: {other:?}");
       }
     }
   } else {

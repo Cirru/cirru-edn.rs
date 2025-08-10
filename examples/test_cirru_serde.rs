@@ -17,13 +17,13 @@ fn main() {
     ]),
   };
 
-  println!("Original: {:#?}", entry);
+  println!("Original: {entry:#?}");
 
   // Test if Cirru can be serialized with our EDN functions
   match to_edn(&entry) {
     Ok(edn) => {
       println!("EDN serialization successful:");
-      println!("{}", edn);
+      println!("{edn}");
 
       // Test deserialization
       match from_edn::<CodeEntry>(edn) {
@@ -31,9 +31,9 @@ fn main() {
           println!("Deserialization successful!");
           println!("Equal: {}", entry == deserialized);
         }
-        Err(e) => println!("Deserialization failed: {}", e),
+        Err(e) => println!("Deserialization failed: {e}"),
       }
     }
-    Err(e) => println!("Serialization failed: {}", e),
+    Err(e) => println!("Serialization failed: {e}"),
   }
 }
