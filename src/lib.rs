@@ -40,7 +40,7 @@
 //! use cirru_edn::Edn;
 //!
 //! let value = Edn::Number(42.0);
-//! 
+//!
 //! // Type checking
 //! assert!(value.is_number());
 //! assert!(!value.is_string());
@@ -133,7 +133,7 @@ pub type EdnResult<T> = Result<T, String>;
 
 // Convenience type aliases for common patterns
 pub type EdnList = EdnListView;
-pub type EdnMap = EdnMapView; 
+pub type EdnMap = EdnMapView;
 pub type EdnSet = EdnSetView;
 pub type EdnRecord = EdnRecordView;
 pub type EdnTuple = EdnTupleView;
@@ -142,10 +142,10 @@ pub type EdnTuple = EdnTupleView;
 impl Edn {
   /// Predefined nil constant for convenience
   pub const NIL: Edn = Edn::Nil;
-  
-  /// Predefined true constant for convenience  
+
+  /// Predefined true constant for convenience
   pub const TRUE: Edn = Edn::Bool(true);
-  
+
   /// Predefined false constant for convenience
   pub const FALSE: Edn = Edn::Bool(false);
 }

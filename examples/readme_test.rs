@@ -66,6 +66,6 @@ fn main() -> Result<(), String> {
 
 #[cfg(not(feature = "serde"))]
 fn main() {
-    println!("This example requires the 'serde' feature to be enabled.");
-    println!("Run with: cargo run --example readme_test --features serde");
+  println!("This example requires the 'serde' feature to be enabled.");
+  println!("Run with: cargo run --example readme_test --features serde");
 }
