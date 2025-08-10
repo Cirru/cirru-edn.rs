@@ -3,14 +3,6 @@
 //! This module provides seamless integration with the serde ecosystem,
 //! allowing easy conversion between Rust structs and Edn values.
 //!
-//! **Note**: This module is only available when the `serde` feature is enabled.
-//! Add the following to your `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! cirru_edn = { version = "0.6", features = ["serde"] }
-//! ```
-//!
 //! # Usage
 //!
 //! ```rust
@@ -57,7 +49,10 @@ use std::sync::Arc;
 
 use serde::{
   de::{self, MapAccess, SeqAccess, Visitor},
-  ser::{self, SerializeMap, SerializeSeq},
+  ser::{
+    self, SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
+    SerializeTupleVariant,
+  },
   Deserialize, Deserializer, Serialize, Serializer,
 };
 
@@ -344,7 +339,8 @@ impl<'de> Deserialize<'de> for Edn {
 
 /// Convert a `T` where `T` implements `Serialize` to `Edn`.
 ///
-/// This is similar to `serde_json::to_value`.
+/// This function directly serializes any serializable type to the `Edn` format,
+/// providing a convenient way to convert Rust data structures to EDN.
 ///
 /// # Examples
 ///
@@ -369,14 +365,14 @@ pub fn to_edn<T>(value: T) -> Result<Edn, String>
 where
   T: Serialize,
 {
-  // First serialize to serde_json::Value, then convert to Edn
-  let json_value = serde_json::to_value(value).map_err(|e| e.to_string())?;
-  json_value_to_edn(json_value)
+  // Serialize directly to Edn using custom serializer
+  value.serialize(EdnSerializer).map_err(|e| e.to_string())
 }
 
 /// Convert an `Edn` to a `T` where `T` implements `Deserialize`.
 ///
-/// This is similar to `serde_json::from_value`.
+/// This function directly deserializes an `Edn` value to any deserializable type,
+/// providing a convenient way to convert EDN data back to Rust data structures.
 ///
 /// # Examples
 ///
@@ -401,94 +397,17 @@ pub fn from_edn<T>(value: Edn) -> Result<T, String>
 where
   T: for<'de> Deserialize<'de>,
 {
-  // Convert Edn to serde_json::Value, then deserialize
-  let json_value = edn_to_json_value(value)?;
-  serde_json::from_value(json_value).map_err(|e| e.to_string())
-}
-
-fn json_value_to_edn(value: serde_json::Value) -> Result<Edn, String> {
-  match value {
-    serde_json::Value::Null => Ok(Edn::Nil),
-    serde_json::Value::Bool(b) => Ok(Edn::Bool(b)),
-    serde_json::Value::Number(n) => {
-      if let Some(f) = n.as_f64() {
-        Ok(Edn::Number(f))
-      } else {
-        Err("Invalid number format".to_string())
-      }
-    }
-    serde_json::Value::String(s) => Ok(Edn::Str(s.into())),
-    serde_json::Value::Array(arr) => {
-      let mut edn_list = Vec::new();
-      for item in arr {
-        edn_list.push(json_value_to_edn(item)?);
-      }
-      Ok(Edn::List(EdnListView(edn_list)))
-    }
-    serde_json::Value::Object(obj) => {
-      let mut edn_map = HashMap::new();
-      for (k, v) in obj {
-        edn_map.insert(Edn::Str(k.into()), json_value_to_edn(v)?);
-      }
-      Ok(Edn::Map(EdnMapView(edn_map)))
-    }
-  }
-}
-
-fn edn_to_json_value(value: Edn) -> Result<serde_json::Value, String> {
-  match value {
-    Edn::Nil => Ok(serde_json::Value::Null),
-    Edn::Bool(b) => Ok(serde_json::Value::Bool(b)),
-    Edn::Number(n) => {
-      // If the number is a whole number, try to represent it as an integer
-      if n.fract().abs() < f64::EPSILON {
-        // Check if it fits in i64 range
-        if n >= i64::MIN as f64 && n <= i64::MAX as f64 {
-          let int_val = n as i64;
-          Ok(serde_json::Value::Number(serde_json::Number::from(int_val)))
-        } else {
-          // Fall back to f64
-          serde_json::Number::from_f64(n)
-            .map(serde_json::Value::Number)
-            .ok_or_else(|| "Invalid number".to_string())
-        }
-      } else {
-        // It's a fractional number, use f64
-        serde_json::Number::from_f64(n)
-          .map(serde_json::Value::Number)
-          .ok_or_else(|| "Invalid number".to_string())
-      }
-    }
-    Edn::Str(s) => Ok(serde_json::Value::String((*s).to_string())),
-    Edn::List(EdnListView(list)) => {
-      let mut json_array = Vec::new();
-      for item in list {
-        json_array.push(edn_to_json_value(item)?);
-      }
-      Ok(serde_json::Value::Array(json_array))
-    }
-    Edn::Map(EdnMapView(map)) => {
-      let mut json_obj = serde_json::Map::new();
-      for (k, v) in map {
-        if let Edn::Str(key_str) = k {
-          json_obj.insert((*key_str).to_string(), edn_to_json_value(v)?);
-        } else {
-          return Err("Map keys must be strings for JSON conversion".to_string());
-        }
-      }
-      Ok(serde_json::Value::Object(json_obj))
-    }
-    _ => Err(format!("Unsupported Edn type for JSON conversion: {:?}", value)),
-  }
+  // Deserialize directly from Edn using custom deserializer
+  T::deserialize(EdnDeserializer::new(value)).map_err(|e| e.to_string())
 }
 
 /// Convert a Cirru value to a serializable representation (nested arrays and strings)
-fn cirru_to_serializable(cirru: &Cirru) -> serde_json::Value {
+fn cirru_to_serializable(cirru: &Cirru) -> Edn {
   match cirru {
-    Cirru::Leaf(s) => serde_json::Value::String(s.as_ref().to_string()),
+    Cirru::Leaf(s) => Edn::Str(s.as_ref().to_string().into()),
     Cirru::List(items) => {
-      let serialized_items: Vec<serde_json::Value> = items.iter().map(cirru_to_serializable).collect();
-      serde_json::Value::Array(serialized_items)
+      let serialized_items: Vec<Edn> = items.iter().map(cirru_to_serializable).collect();
+      Edn::List(EdnListView(serialized_items))
     }
   }
 }
@@ -505,6 +424,779 @@ fn serializable_to_cirru(value: &Edn) -> Result<Cirru, String> {
       Ok(Cirru::List(cirru_items))
     }
     _ => Err(format!("Invalid Cirru representation: {:?}", value)),
+  }
+}
+
+// Custom Edn Serializer
+struct EdnSerializer;
+
+#[derive(Debug)]
+struct EdnSerializerError(String);
+
+impl std::fmt::Display for EdnSerializerError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl std::error::Error for EdnSerializerError {}
+
+impl ser::Error for EdnSerializerError {
+  fn custom<T: std::fmt::Display>(msg: T) -> Self {
+    EdnSerializerError(msg.to_string())
+  }
+}
+
+impl Serializer for EdnSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  type SerializeSeq = EdnSeqSerializer;
+  type SerializeTuple = EdnSeqSerializer;
+  type SerializeTupleStruct = EdnSeqSerializer;
+  type SerializeTupleVariant = EdnSeqSerializer;
+  type SerializeMap = EdnMapSerializer;
+  type SerializeStruct = EdnMapSerializer;
+  type SerializeStructVariant = EdnMapSerializer;
+
+  fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Bool(v))
+  }
+
+  fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v as f64))
+  }
+
+  fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Number(v))
+  }
+
+  fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Str(v.to_string().into()))
+  }
+
+  fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Str(v.into()))
+  }
+
+  fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Buffer(v.to_vec()))
+  }
+
+  fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Nil)
+  }
+
+  fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    value.serialize(self)
+  }
+
+  fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Nil)
+  }
+
+  fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Nil)
+  }
+
+  fn serialize_unit_variant(
+    self,
+    _name: &'static str,
+    _variant_index: u32,
+    variant: &'static str,
+  ) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Str(variant.into()))
+  }
+
+  fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    value.serialize(self)
+  }
+
+  fn serialize_newtype_variant<T>(
+    self,
+    _name: &'static str,
+    _variant_index: u32,
+    variant: &'static str,
+    value: &T,
+  ) -> Result<Self::Ok, Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    let mut map = HashMap::new();
+    map.insert(Edn::Str(variant.into()), value.serialize(self)?);
+    Ok(Edn::Map(EdnMapView(map)))
+  }
+
+  fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+    Ok(EdnSeqSerializer {
+      items: Vec::with_capacity(len.unwrap_or(0)),
+    })
+  }
+
+  fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+    self.serialize_seq(Some(len))
+  }
+
+  fn serialize_tuple_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeTupleStruct, Self::Error> {
+    self.serialize_seq(Some(len))
+  }
+
+  fn serialize_tuple_variant(
+    self,
+    _name: &'static str,
+    _variant_index: u32,
+    _variant: &'static str,
+    len: usize,
+  ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+    // For tuple variants, we'll create a map with the variant name as key
+    Ok(EdnSeqSerializer {
+      items: Vec::with_capacity(len + 1),
+    })
+  }
+
+  fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+    Ok(EdnMapSerializer {
+      map: HashMap::with_capacity(len.unwrap_or(0)),
+      next_key: None,
+    })
+  }
+
+  fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct, Self::Error> {
+    self.serialize_map(Some(len))
+  }
+
+  fn serialize_struct_variant(
+    self,
+    _name: &'static str,
+    _variant_index: u32,
+    variant: &'static str,
+    len: usize,
+  ) -> Result<Self::SerializeStructVariant, Self::Error> {
+    let mut serializer = self.serialize_map(Some(len + 1))?;
+    serializer
+      .map
+      .insert(Edn::Str("__variant".into()), Edn::Str(variant.into()));
+    Ok(serializer)
+  }
+}
+
+struct EdnSeqSerializer {
+  items: Vec<Edn>,
+}
+
+impl SerializeSeq for EdnSeqSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    self.items.push(value.serialize(EdnSerializer)?);
+    Ok(())
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::List(EdnListView(self.items)))
+  }
+}
+
+impl SerializeTuple for EdnSeqSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    SerializeSeq::serialize_element(self, value)
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    SerializeSeq::end(self)
+  }
+}
+
+impl SerializeTupleStruct for EdnSeqSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    SerializeSeq::serialize_element(self, value)
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    SerializeSeq::end(self)
+  }
+}
+
+impl SerializeTupleVariant for EdnSeqSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    SerializeSeq::serialize_element(self, value)
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    SerializeSeq::end(self)
+  }
+}
+
+struct EdnMapSerializer {
+  map: HashMap<Edn, Edn>,
+  next_key: Option<Edn>,
+}
+
+impl SerializeMap for EdnMapSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    self.next_key = Some(key.serialize(EdnSerializer)?);
+    Ok(())
+  }
+
+  fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    let key = self
+      .next_key
+      .take()
+      .ok_or_else(|| EdnSerializerError("serialize_value called before serialize_key".to_string()))?;
+    self.map.insert(key, value.serialize(EdnSerializer)?);
+    Ok(())
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Map(EdnMapView(self.map)))
+  }
+}
+
+impl SerializeStruct for EdnMapSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    self.map.insert(Edn::Str(key.into()), value.serialize(EdnSerializer)?);
+    Ok(())
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    Ok(Edn::Map(EdnMapView(self.map)))
+  }
+}
+
+impl SerializeStructVariant for EdnMapSerializer {
+  type Ok = Edn;
+  type Error = EdnSerializerError;
+
+  fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+  where
+    T: ?Sized + Serialize,
+  {
+    SerializeStruct::serialize_field(self, key, value)
+  }
+
+  fn end(self) -> Result<Self::Ok, Self::Error> {
+    SerializeStruct::end(self)
+  }
+}
+
+// Custom Edn Deserializer
+struct EdnDeserializer {
+  value: Edn,
+}
+
+impl EdnDeserializer {
+  fn new(value: Edn) -> Self {
+    EdnDeserializer { value }
+  }
+}
+
+#[derive(Debug)]
+struct EdnDeserializerError(String);
+
+impl std::fmt::Display for EdnDeserializerError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
+impl std::error::Error for EdnDeserializerError {}
+
+impl de::Error for EdnDeserializerError {
+  fn custom<T: std::fmt::Display>(msg: T) -> Self {
+    EdnDeserializerError(msg.to_string())
+  }
+}
+
+impl<'de> Deserializer<'de> for EdnDeserializer {
+  type Error = EdnDeserializerError;
+
+  fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Nil => visitor.visit_unit(),
+      Edn::Bool(b) => visitor.visit_bool(b),
+      Edn::Number(n) => {
+        if n.fract().abs() < f64::EPSILON && n >= i64::MIN as f64 && n <= i64::MAX as f64 {
+          visitor.visit_i64(n as i64)
+        } else {
+          visitor.visit_f64(n)
+        }
+      }
+      Edn::Str(s) => visitor.visit_str(s.as_ref()),
+      Edn::List(EdnListView(items)) => visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter())),
+      Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
+      _ => Err(EdnDeserializerError(format!(
+        "Cannot deserialize Edn type: {:?}",
+        self.value
+      ))),
+    }
+  }
+
+  fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Bool(b) => visitor.visit_bool(b),
+      _ => Err(EdnDeserializerError("Expected boolean".to_string())),
+    }
+  }
+
+  fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_i64(visitor)
+  }
+
+  fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_i64(visitor)
+  }
+
+  fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_i64(visitor)
+  }
+
+  fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Number(n) => visitor.visit_i64(n as i64),
+      _ => Err(EdnDeserializerError("Expected number".to_string())),
+    }
+  }
+
+  fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_u64(visitor)
+  }
+
+  fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_u64(visitor)
+  }
+
+  fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_u64(visitor)
+  }
+
+  fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Number(n) => visitor.visit_u64(n as u64),
+      _ => Err(EdnDeserializerError("Expected number".to_string())),
+    }
+  }
+
+  fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_f64(visitor)
+  }
+
+  fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Number(n) => visitor.visit_f64(n),
+      _ => Err(EdnDeserializerError("Expected number".to_string())),
+    }
+  }
+
+  fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_str(visitor)
+  }
+
+  fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Str(s) => visitor.visit_str(s.as_ref()),
+      _ => Err(EdnDeserializerError("Expected string".to_string())),
+    }
+  }
+
+  fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_str(visitor)
+  }
+
+  fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Buffer(buf) => visitor.visit_bytes(&buf),
+      _ => Err(EdnDeserializerError("Expected buffer".to_string())),
+    }
+  }
+
+  fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_bytes(visitor)
+  }
+
+  fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Nil => visitor.visit_none(),
+      _ => visitor.visit_some(self),
+    }
+  }
+
+  fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Nil => visitor.visit_unit(),
+      _ => Err(EdnDeserializerError("Expected nil".to_string())),
+    }
+  }
+
+  fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_unit(visitor)
+  }
+
+  fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    visitor.visit_newtype_struct(self)
+  }
+
+  fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::List(EdnListView(items)) => visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter())),
+      _ => Err(EdnDeserializerError("Expected list".to_string())),
+    }
+  }
+
+  fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_seq(visitor)
+  }
+
+  fn deserialize_tuple_struct<V>(self, _name: &'static str, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_seq(visitor)
+  }
+
+  fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
+      _ => Err(EdnDeserializerError("Expected map".to_string())),
+    }
+  }
+
+  fn deserialize_struct<V>(
+    self,
+    _name: &'static str,
+    _fields: &'static [&'static str],
+    visitor: V,
+  ) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_map(visitor)
+  }
+
+  fn deserialize_enum<V>(
+    self,
+    _name: &'static str,
+    _variants: &'static [&'static str],
+    visitor: V,
+  ) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Edn::Str(s) => visitor.visit_enum(EdnEnumDeserializer::new(s.as_ref().to_string(), None)),
+      Edn::Map(EdnMapView(map)) => {
+        if map.len() == 1 {
+          let (key, value) = map.into_iter().next().unwrap();
+          if let Edn::Str(variant_name) = key {
+            visitor.visit_enum(EdnEnumDeserializer::new(variant_name.as_ref().to_string(), Some(value)))
+          } else {
+            Err(EdnDeserializerError("Expected string key for enum variant".to_string()))
+          }
+        } else {
+          Err(EdnDeserializerError("Expected single-entry map for enum".to_string()))
+        }
+      }
+      _ => Err(EdnDeserializerError("Expected string or map for enum".to_string())),
+    }
+  }
+
+  fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    self.deserialize_str(visitor)
+  }
+
+  fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    visitor.visit_unit()
+  }
+}
+
+struct EdnSeqDeserializer {
+  iter: std::vec::IntoIter<Edn>,
+}
+
+impl EdnSeqDeserializer {
+  fn new(iter: std::vec::IntoIter<Edn>) -> Self {
+    EdnSeqDeserializer { iter }
+  }
+}
+
+impl<'de> SeqAccess<'de> for EdnSeqDeserializer {
+  type Error = EdnDeserializerError;
+
+  fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+  where
+    T: de::DeserializeSeed<'de>,
+  {
+    match self.iter.next() {
+      Some(value) => seed.deserialize(EdnDeserializer::new(value)).map(Some),
+      None => Ok(None),
+    }
+  }
+}
+
+struct EdnMapDeserializer {
+  iter: std::collections::hash_map::IntoIter<Edn, Edn>,
+  current_value: Option<Edn>,
+}
+
+impl EdnMapDeserializer {
+  fn new(iter: std::collections::hash_map::IntoIter<Edn, Edn>) -> Self {
+    EdnMapDeserializer {
+      iter,
+      current_value: None,
+    }
+  }
+}
+
+impl<'de> MapAccess<'de> for EdnMapDeserializer {
+  type Error = EdnDeserializerError;
+
+  fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+  where
+    K: de::DeserializeSeed<'de>,
+  {
+    match self.iter.next() {
+      Some((key, value)) => {
+        self.current_value = Some(value);
+        seed.deserialize(EdnDeserializer::new(key)).map(Some)
+      }
+      None => Ok(None),
+    }
+  }
+
+  fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+  where
+    V: de::DeserializeSeed<'de>,
+  {
+    match self.current_value.take() {
+      Some(value) => seed.deserialize(EdnDeserializer::new(value)),
+      None => Err(EdnDeserializerError(
+        "next_value_seed called before next_key_seed".to_string(),
+      )),
+    }
+  }
+}
+
+struct EdnEnumDeserializer {
+  variant: String,
+  value: Option<Edn>,
+}
+
+impl EdnEnumDeserializer {
+  fn new(variant: String, value: Option<Edn>) -> Self {
+    EdnEnumDeserializer { variant, value }
+  }
+}
+
+impl<'de> de::EnumAccess<'de> for EdnEnumDeserializer {
+  type Error = EdnDeserializerError;
+  type Variant = EdnVariantDeserializer;
+
+  fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+  where
+    V: de::DeserializeSeed<'de>,
+  {
+    let variant_deserializer = EdnDeserializer::new(Edn::Str(self.variant.into()));
+    let variant = seed.deserialize(variant_deserializer)?;
+    Ok((variant, EdnVariantDeserializer { value: self.value }))
+  }
+}
+
+struct EdnVariantDeserializer {
+  value: Option<Edn>,
+}
+
+impl<'de> de::VariantAccess<'de> for EdnVariantDeserializer {
+  type Error = EdnDeserializerError;
+
+  fn unit_variant(self) -> Result<(), Self::Error> {
+    match self.value {
+      Some(_) => Err(EdnDeserializerError("Expected unit variant".to_string())),
+      None => Ok(()),
+    }
+  }
+
+  fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+  where
+    T: de::DeserializeSeed<'de>,
+  {
+    match self.value {
+      Some(value) => seed.deserialize(EdnDeserializer::new(value)),
+      None => Err(EdnDeserializerError("Expected newtype variant".to_string())),
+    }
+  }
+
+  fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Some(Edn::List(EdnListView(items))) => visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter())),
+      Some(_) => Err(EdnDeserializerError("Expected list for tuple variant".to_string())),
+      None => Err(EdnDeserializerError("Expected tuple variant".to_string())),
+    }
+  }
+
+  fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
+  where
+    V: Visitor<'de>,
+  {
+    match self.value {
+      Some(Edn::Map(EdnMapView(map))) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
+      Some(_) => Err(EdnDeserializerError("Expected map for struct variant".to_string())),
+      None => Err(EdnDeserializerError("Expected struct variant".to_string())),
+    }
   }
 }
 

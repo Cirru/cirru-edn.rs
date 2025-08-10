@@ -1,14 +1,10 @@
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 
-#[cfg(feature = "serde")]
 use cirru_edn::{from_edn, to_edn, Edn};
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
 use std::collections::HashMap;
 
-#[cfg(feature = "serde")]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Person {
   name: String,
@@ -27,7 +23,6 @@ struct Department {
   active: bool,
 }
 
-#[cfg(feature = "serde")]
 fn main() -> Result<(), String> {
   println!("=== Cirru EDN Serde Support Demo ===\n");
 
@@ -115,10 +110,4 @@ fn main() -> Result<(), String> {
 
   println!("🎉 All demonstrations completed successfully!");
   Ok(())
-}
-
-#[cfg(not(feature = "serde"))]
-fn main() {
-  println!("This example requires the 'serde' feature to be enabled.");
-  println!("Run with: cargo run --example serde_demo --features serde");
 }

@@ -24,11 +24,17 @@ jobs:
       - name: Test core functionality
         run: cargo test
 
-      - name: Test with serde feature
-        run: cargo test --features serde
-
       - name: Test all features
         run: cargo test --all-features
+
+      - name: Run all examples
+        run: |
+          # cargo run --example main
+          cargo run --example buffer
+          cargo run --example from
+          # cargo run --example bincode
+          cargo run --example serde_demo
+          cargo run --example readme_test
 
       - name: Clippy check
         run: cargo clippy --all-features -- -D warnings

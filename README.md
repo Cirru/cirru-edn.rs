@@ -24,7 +24,7 @@ cirru_edn::format(data, /* use_inline */ true); // Result<String, String>.
 
 ### Serde Integration
 
-Cirru EDN provides seamless integration with serde, allowing you to easily convert between Rust structs and EDN data, similar to how you would use `serde_json`.
+Cirru EDN provides seamless integration with serde, allowing you to easily convert between Rust structs and EDN data with efficient direct serialization and deserialization.
 
 #### Basic Usage
 
@@ -106,8 +106,7 @@ See `examples/serde_demo.rs` for more complex nested structures and usage patter
 #### Limitations
 
 - Some special Edn types (like `Quote`, `AnyRef`) cannot be serialized
-- Map keys must be strings when converting to JSON-compatible format
-- Maps with complex keys will use their string representation
+- Maps with complex keys will use their string representation when serializing structs
 
 ### EDN Format
 

@@ -9,7 +9,7 @@
 //! ## Features
 //!
 //! - **Rich data types**: nil, boolean, number, string, symbol, tag, list, set, map, record, tuple, buffer, atom
-//! - **Serde integration**: Seamless serialization/deserialization with Rust structs (requires enabling the `serde` feature)
+//! - **Serde integration**: Seamless serialization/deserialization with Rust structs
 //! - **Efficient string handling**: Uses `Arc<str>` for string deduplication
 //! - **Runtime references**: Support for arbitrary Rust data via `AnyRef`
 //! - **Type-safe API**: Strong typing with convenient conversion methods
@@ -82,18 +82,9 @@
 //!
 //! ## Serde Integration
 //!
-//! To use serde integration, enable the `serde` feature in your `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! cirru_edn = { version = "0.6", features = ["serde"] }
-//! ```
-//!
-//! Then you can use the serde functions:
+//! The crate includes built-in serde support for seamless serialization:
 //!
 //! ```rust
-//! # #[cfg(feature = "serde")]
-//! # {
 //! use cirru_edn::{to_edn, from_edn};
 //! use serde::{Serialize, Deserialize};
 //!
@@ -106,13 +97,11 @@
 //! let person = Person { name: "Bob".to_string(), age: 25 };
 //! let edn_value = to_edn(&person).unwrap();
 //! let recovered: Person = from_edn(edn_value).unwrap();
-//! # }
 //! ```
 
 mod edn;
 mod tag;
 
-#[cfg(feature = "serde")]
 pub mod serde_support;
 
 use std::cmp::Ordering::*;
@@ -150,7 +139,6 @@ impl Edn {
   pub const FALSE: Edn = Edn::Bool(false);
 }
 
-#[cfg(feature = "serde")]
 pub use serde_support::{from_edn, to_edn};
 
 /// Parse Cirru code into Edn data.
