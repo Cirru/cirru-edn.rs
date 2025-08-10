@@ -808,7 +808,10 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
             // Now deserialize the serialized Cirru as if it came from normal serde
             EdnDeserializer::new(edn_cirru).deserialize_any(visitor)
           }
-          Err(e) => Err(EdnDeserializerError(format!("Failed to serialize Quote's Cirru: {}", e)))
+          Err(e) => Err(EdnDeserializerError(format!(
+            "Failed to serialize Quote's Cirru: {}",
+            e
+          ))),
         }
       }
       _ => Err(EdnDeserializerError(format!(
