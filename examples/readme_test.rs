@@ -1,7 +1,7 @@
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 
-use cirru_edn::{from_edn, to_edn, Edn};
+use cirru_edn::{Edn, from_edn, to_edn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

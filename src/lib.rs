@@ -113,7 +113,7 @@ use std::vec;
 use cirru_parser::{Cirru, CirruWriterOptions};
 
 pub use edn::{
-  is_simple_char, DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView,
+  DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView, is_simple_char,
 };
 pub use tag::EdnTag;
 

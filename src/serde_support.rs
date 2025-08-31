@@ -69,12 +69,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde::{
+  Deserialize, Deserializer, Serialize, Serializer,
   de::{self, MapAccess, SeqAccess, Visitor},
   ser::{
     self, SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
     SerializeTupleVariant,
   },
-  Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use crate::{Edn, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTag, EdnTupleView};
@@ -814,6 +814,15 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
           ))),
         }
       }
+      Edn::Set(EdnSetView(set)) => {
+        // Convert Set to a sequence for deserialization
+        let items: Vec<Edn> = set.into_iter().collect();
+        visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter()))
+      }
+      Edn::Tag(tag) => {
+        // Convert Tag to string for deserialization
+        visitor.visit_str(tag.ref_str())
+      }
       _ => Err(EdnDeserializerError(format!(
         "Cannot deserialize Edn type: {:?}",
         self.value
@@ -993,7 +1002,12 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
   {
     match self.value {
       Edn::List(EdnListView(items)) => visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter())),
-      _ => Err(EdnDeserializerError("Expected list".to_string())),
+      Edn::Set(EdnSetView(set)) => {
+        // Convert Set to a sequence for deserialization
+        let items: Vec<Edn> = set.into_iter().collect();
+        visitor.visit_seq(EdnSeqDeserializer::new(items.into_iter()))
+      }
+      _ => Err(EdnDeserializerError("Expected list or set".to_string())),
     }
   }
 

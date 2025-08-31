@@ -26,11 +26,7 @@ impl TryFrom<Edn> for Cat {
       counts: value.view_map()?.get_or_nil("counts").try_into()?,
       owner: {
         let v = value.view_map()?.get_or_nil("owner");
-        if v == Edn::Nil {
-          None
-        } else {
-          Some(v.try_into()?)
-        }
+        if v == Edn::Nil { None } else { Some(v.try_into()?) }
       },
     };
     Ok(c)

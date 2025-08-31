@@ -7,7 +7,7 @@
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 
-use cirru_edn::{from_edn, to_edn, Edn, EdnRecordView, EdnTag};
+use cirru_edn::{Edn, EdnRecordView, EdnTag, from_edn, to_edn};
 use cirru_parser::Cirru;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

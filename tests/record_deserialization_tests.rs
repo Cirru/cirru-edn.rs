@@ -5,7 +5,7 @@
 
 extern crate cirru_edn;
 
-use cirru_edn::{from_edn, to_edn, Edn, EdnRecordView, EdnTag};
+use cirru_edn::{Edn, EdnRecordView, EdnTag, from_edn, to_edn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

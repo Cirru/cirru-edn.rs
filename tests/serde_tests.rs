@@ -1,8 +1,8 @@
 #![allow(clippy::mutable_key_type)]
 
-use cirru_edn::{from_edn, to_edn, Edn};
+use cirru_edn::{Edn, from_edn, to_edn};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Person {
@@ -41,6 +41,51 @@ fn test_basic_serde_conversion() {
   let reconstructed: Person = from_edn(edn_value).expect("Failed to convert from Edn");
 
   assert_eq!(person, reconstructed);
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct ApiDocWithSetAndTag {
+  name: String,
+  tags: HashSet<String>,
+  description: String,
+}
+
+#[test]
+fn test_set_and_tag_deserialization() {
+  use cirru_edn::parse;
+
+  // Create EDN data with Set containing Tags
+  let edn_str = r#"
+{}
+  :name |test-function
+  :tags $ #{} :functional :collection :utility
+  :description "|A test function"
+"#;
+  let parsed_edn = parse(edn_str).expect("Failed to parse EDN");
+
+  // Convert to our struct
+  let api_doc: ApiDocWithSetAndTag = from_edn(parsed_edn).expect("Failed to deserialize");
+
+  // Verify the deserialization worked correctly
+  assert_eq!(api_doc.name, "test-function");
+  assert_eq!(api_doc.description, "A test function");
+
+  // Verify the Set contains the expected tags as strings
+  let expected_tags: HashSet<String> = [
+    "functional".to_string(),
+    "collection".to_string(),
+    "utility".to_string(),
+  ]
+  .into_iter()
+  .collect();
+
+  assert_eq!(api_doc.tags, expected_tags);
+
+  // Test round-trip serialization
+  let serialized_edn = to_edn(&api_doc).expect("Failed to serialize");
+  let deserialized: ApiDocWithSetAndTag = from_edn(serialized_edn).expect("Failed to deserialize round-trip");
+
+  assert_eq!(api_doc, deserialized);
 }
 
 #[test]
