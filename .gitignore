@@ -2,3 +2,5 @@
 Cargo.lock
 
 /profile.json
+
+.DS_Store

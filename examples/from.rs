@@ -26,11 +26,7 @@ impl TryFrom<Edn> for Cat {
       counts: value.view_map()?.get_or_nil("counts").try_into()?,
       owner: {
         let v = value.view_map()?.get_or_nil("owner");
-        if v == Edn::Nil {
-          None
-        } else {
-          Some(v.try_into()?)
-        }
+        if v == Edn::Nil { None } else { Some(v.try_into()?) }
       },
     };
     Ok(c)
@@ -54,17 +50,16 @@ fn main() -> Result<(), String> {
   let data: Edn = Edn::Map(EdnMapView(HashMap::from_iter([
     ("name".into(), Edn::str("Kii")),
     ("category".into(), Edn::tag("ying")),
-    // ("weight".into(), Edn::Number(1.0)),
-    // (
-    //   "skills".into(),
-    //   Edn::List(vec![Edn::kwd("eating"), Edn::kwd("sleeping")]),
-    // ),
+    ("weight".into(), Edn::Number(1.0)),
+    (
+      "skills".into(),
+      Edn::List(vec![Edn::tag("eating"), Edn::tag("sleeping")].into()),
+    ),
     (
       "counts".into(),
       Edn::from(HashMap::from_iter([(Edn::from("a"), Edn::Number(1.))])),
     ),
-    // ("owner".into(), Edn::str("Kii")),
-    ("owner".into(), Edn::Nil),
+    ("owner".into(), Edn::str("Kii")),
   ])));
   let cat: Cat = data.try_into()?;
   println!("new {cat:?}");

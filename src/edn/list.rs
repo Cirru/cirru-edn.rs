@@ -93,7 +93,7 @@ impl EdnListView {
     self.0.push(x)
   }
 
-  pub fn iter(&self) -> EdnListViewIter {
+  pub fn iter(&self) -> EdnListViewIter<'_> {
     EdnListViewIter { xs: &self.0, idx: 0 }
   }
 }

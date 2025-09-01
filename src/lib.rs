@@ -1,5 +1,108 @@
+//! # Cirru EDN
+//!
+//! Extensible Data Notation (EDN) implementation using Cirru syntax.
+//!
+//! This crate provides a data format similar to EDN but using Cirru's syntax instead of
+//! traditional s-expressions. It supports rich data types including primitives, collections,
+//! and special constructs like records and tuples.
+//!
+//! ## Features
+//!
+//! - **Rich data types**: nil, boolean, number, string, symbol, tag, list, set, map, record, tuple, buffer, atom
+//! - **Serde integration**: Seamless serialization/deserialization with Rust structs
+//! - **Efficient string handling**: Uses `Arc<str>` for string deduplication
+//! - **Runtime references**: Support for arbitrary Rust data via `AnyRef`
+//! - **Type-safe API**: Strong typing with convenient conversion methods
+//!
+//! ## Basic Usage
+//!
+//! ```rust
+//! use cirru_edn::{parse, format, Edn};
+//!
+//! // Parse Cirru EDN from string
+//! let data = parse("[] 1 2 3").unwrap();
+//!
+//! // Create EDN values programmatically
+//! let map = Edn::map_from_iter([
+//!     (Edn::tag("name"), Edn::str("Alice")),
+//!     (Edn::tag("age"), Edn::Number(30.0)),
+//! ]);
+//!
+//! // Format back to string
+//! let formatted = format(&map, true).unwrap();
+//! ```
+//!
+//! ## Type Checking and Conversion
+//!
+//! The library provides type-safe methods for checking and converting values:
+//!
+//! ```rust
+//! use cirru_edn::Edn;
+//!
+//! let value = Edn::Number(42.0);
+//!
+//! // Type checking
+//! assert!(value.is_number());
+//! assert!(!value.is_string());
+//!
+//! // Safe conversion
+//! let number: f64 = value.read_number().unwrap();
+//! assert_eq!(number, 42.0);
+//!
+//! // Get type name for debugging
+//! assert_eq!(value.type_name(), "number");
+//! ```
+//!
+//! ## Working with Collections
+//!
+//! ```rust
+//! use cirru_edn::Edn;
+//!
+//! // Create and access lists
+//! let list = Edn::List(vec![
+//!     Edn::Number(1.0),
+//!     Edn::str("hello"),
+//!     Edn::Bool(true)
+//! ].into());
+//!
+//! if let Some(first) = list.get_list_item(0) {
+//!     assert_eq!(first.read_number().unwrap(), 1.0);
+//! }
+//!
+//! // Create and access maps
+//! let map = Edn::map_from_iter([
+//!     (Edn::tag("name"), Edn::str("Bob")),
+//!     (Edn::tag("age"), Edn::Number(25.0)),
+//! ]);
+//!
+//! if let Some(name) = map.get_map_value(&Edn::tag("name")) {
+//!     assert_eq!(name.read_string().unwrap(), "Bob");
+//! }
+//! ```
+//!
+//! ## Serde Integration
+//!
+//! The crate includes built-in serde support for seamless serialization:
+//!
+//! ```rust
+//! use cirru_edn::{to_edn, from_edn};
+//! use serde::{Serialize, Deserialize};
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Person {
+//!     name: String,
+//!     age: u32,
+//! }
+//!
+//! let person = Person { name: "Bob".to_string(), age: 25 };
+//! let edn_value = to_edn(&person).unwrap();
+//! let recovered: Person = from_edn(edn_value).unwrap();
+//! ```
+
 mod edn;
 mod tag;
+
+pub mod serde_support;
 
 use std::cmp::Ordering::*;
 use std::collections::{HashMap, HashSet};
@@ -10,11 +113,71 @@ use std::vec;
 use cirru_parser::{Cirru, CirruWriterOptions};
 
 pub use edn::{
-  is_simple_char, DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView,
+  DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView, is_simple_char,
 };
 pub use tag::EdnTag;
 
-/// parse Cirru code into data
+// Re-export important error types for better error handling
+pub type EdnResult<T> = Result<T, String>;
+
+// Convenience type aliases for common patterns
+pub type EdnList = EdnListView;
+pub type EdnMap = EdnMapView;
+pub type EdnSet = EdnSetView;
+pub type EdnRecord = EdnRecordView;
+pub type EdnTuple = EdnTupleView;
+
+// Common constants for convenience
+impl Edn {
+  /// Predefined nil constant for convenience
+  pub const NIL: Edn = Edn::Nil;
+
+  /// Predefined true constant for convenience
+  pub const TRUE: Edn = Edn::Bool(true);
+
+  /// Predefined false constant for convenience
+  pub const FALSE: Edn = Edn::Bool(false);
+}
+
+pub use serde_support::{from_edn, to_edn};
+
+/// Parse Cirru code into Edn data.
+///
+/// This function takes a string containing Cirru syntax and converts it into an Edn value.
+/// The input must contain exactly one expression.
+///
+/// # Arguments
+///
+/// * `s` - A string slice containing the Cirru code to parse
+///
+/// # Returns
+///
+/// * `Result<Edn, String>` - Returns the parsed Edn value on success, or an error message on failure
+///
+/// # Examples
+///
+/// ```
+/// use cirru_edn::parse;
+///
+/// // Parse a simple number
+/// let result = parse("do 42").unwrap();
+///
+/// // Parse a list
+/// let result = parse("[] 1 2 3").unwrap();
+///
+/// // Parse a map
+/// let result = parse("{} (:name |Alice) (:age 30)").unwrap();
+///
+/// // Parse nested structures
+/// let result = parse("{} (:items $ [] 1 2 3) (:meta $ {} (:version 1))").unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The input contains no expressions or more than one expression
+/// - The syntax is invalid
+/// - The input contains unsupported constructs
 pub fn parse(s: &str) -> Result<Edn, String> {
   let xs = cirru_parser::parse(s)?;
   if xs.len() == 1 {
@@ -173,9 +336,7 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                           (Cirru::Leaf(s), Ok(v)) => {
                             entries.push((EdnTag::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
-                          (Cirru::Leaf(s), Err(e)) => {
-                            return Err(format!("invalid record value for `{s}`, got: {e}"))
-                          }
+                          (Cirru::Leaf(s), Err(e)) => return Err(format!("invalid record value for `{s}`, got: {e}")),
                           (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {zs:?}")),
                         }
                       } else {
@@ -337,7 +498,50 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
   }
 }
 
-/// generate string from Edn
+/// Generate formatted string from Edn data.
+///
+/// This function converts an Edn value into its Cirru syntax representation.
+///
+/// # Arguments
+///
+/// * `data` - The Edn value to format
+/// * `use_inline` - Whether to use inline formatting (more compact) or multiline formatting
+///
+/// # Returns
+///
+/// * `Result<String, String>` - Returns the formatted string on success, or an error message on failure
+///
+/// # Examples
+///
+/// ```
+/// use cirru_edn::{Edn, format};
+///
+/// let data = Edn::Number(42.0);
+/// let result = format(&data, true).unwrap();
+/// assert_eq!(result.trim(), "do 42");
+///
+/// // Format a list with inline style
+/// let data = Edn::List(vec![
+///     Edn::Number(1.0),
+///     Edn::Number(2.0),
+///     Edn::Number(3.0),
+/// ].into());
+/// let result = format(&data, true).unwrap();
+/// // Output: ([] 1 2 3)
+///
+/// // Format a map with multiline style
+/// let data = Edn::map_from_iter([
+///     (Edn::tag("name"), Edn::str("Alice")),
+///     (Edn::tag("age"), Edn::Number(30.0)),
+/// ]);
+/// let result = format(&data, false).unwrap();
+/// ```
+///
+/// # Notes
+///
+/// - AnyRef values cannot be formatted and will cause an error
+/// - The function automatically wraps single literals in `do` expressions
+/// - Inline formatting produces more compact output, while multiline formatting is more readable
 pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
   let options = CirruWriterOptions { use_inline };
   match assemble_cirru_node(data) {

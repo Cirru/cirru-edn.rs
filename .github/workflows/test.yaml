@@ -21,9 +21,18 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - run: cargo test
+      - name: Test core functionality
+        run: cargo test
 
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+      - name: Run all examples
+        run: |
+          # cargo run --example main
+          cargo run --example buffer
+          cargo run --example from
+          # cargo run --example bincode
+          cargo run --example serde_demo
+          cargo run --example readme_test
+          cargo run --example struct_key_demo
+
+      - name: Clippy check
+        run: cargo clippy --all-features -- -D warnings
