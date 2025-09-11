@@ -460,10 +460,10 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       ys.push("%{}".into());
       ys.push(format!(":{name}").as_str().into());
       let mut ordered_entries = entries.to_owned();
-      ordered_entries.sort_by(|(_a1, a2), (_b1, b2)| match (a2.is_literal(), b2.is_literal()) {
+      ordered_entries.sort_by(|(a1, a2), (b1, b2)| match (a2.is_literal(), b2.is_literal()) {
         (true, false) => Less,
         (false, true) => Greater,
-        _ => Equal,
+        _ => a1.cmp(b1),
       });
       for entry in ordered_entries {
         let v = &entry.1;

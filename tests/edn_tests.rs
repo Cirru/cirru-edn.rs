@@ -376,9 +376,26 @@ fn test_format_record() -> Result<(), String> {
       (EdnTag::new("d"), Edn::Number(3.0)),
     ],
   });
-
   assert_eq!(
     cirru_edn::format(&record, true)?,
+    "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
+  );
+
+  let record_unstable_order = Edn::Record(EdnRecordView {
+    tag: EdnTag::new("Demo"),
+    pairs: vec![
+      (
+        EdnTag::new("c"),
+        Edn::from(vec![Edn::Number(1.0), Edn::Number(2.0), Edn::Number(3.0)]),
+      ),
+      (EdnTag::new("d"), Edn::Number(3.0)),
+      (EdnTag::new("b"), Edn::Number(2.0)),
+      (EdnTag::new("a"), Edn::Number(1.0)),
+    ],
+  });
+
+  assert_eq!(
+    cirru_edn::format(&record_unstable_order, true)?,
     "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
   );
 
