@@ -110,7 +110,7 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 use std::vec;
 
-use cirru_parser::{Cirru, CirruWriterOptions};
+use cirru_parser::Cirru;
 
 pub use edn::{
   DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView, is_simple_char,
@@ -460,10 +460,10 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       ys.push("%{}".into());
       ys.push(format!(":{name}").as_str().into());
       let mut ordered_entries = entries.to_owned();
-      ordered_entries.sort_by(|(_a1, a2), (_b1, b2)| match (a2.is_literal(), b2.is_literal()) {
+      ordered_entries.sort_by(|(a1, a2), (b1, b2)| match (a2.is_literal(), b2.is_literal()) {
         (true, false) => Less,
         (false, true) => Greater,
-        _ => Equal,
+        _ => a1.cmp(b1),
       });
       for entry in ordered_entries {
         let v = &entry.1;
@@ -543,9 +543,8 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 /// - The function automatically wraps single literals in `do` expressions
 /// - Inline formatting produces more compact output, while multiline formatting is more readable
 pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
-  let options = CirruWriterOptions { use_inline };
   match assemble_cirru_node(data) {
-    Cirru::Leaf(s) => cirru_parser::format(&[vec!["do", &*s].into()], options),
-    Cirru::List(xs) => cirru_parser::format(&[(Cirru::List(xs))], options),
+    Cirru::Leaf(s) => cirru_parser::format(&[vec!["do", &*s].into()], use_inline.into()),
+    Cirru::List(xs) => cirru_parser::format(&[(Cirru::List(xs))], use_inline.into()),
   }
 }
