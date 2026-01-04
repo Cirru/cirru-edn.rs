@@ -100,6 +100,7 @@
 //! ```
 
 mod edn;
+mod error;
 mod tag;
 
 pub mod serde_support;
@@ -115,10 +116,12 @@ use cirru_parser::Cirru;
 pub use edn::{
   DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView, is_simple_char,
 };
+pub use error::{EdnError, EdnResult, Position};
 pub use tag::EdnTag;
 
-// Re-export important error types for better error handling
-pub type EdnResult<T> = Result<T, String>;
+// Backward compatible type alias
+#[deprecated(since = "0.7.0", note = "Use EdnError instead")]
+pub type EdnResultString<T> = Result<T, String>;
 
 // Convenience type aliases for common patterns
 pub type EdnList = EdnListView;
@@ -178,25 +181,37 @@ pub use serde_support::{from_edn, to_edn};
 /// - The input contains no expressions or more than one expression
 /// - The syntax is invalid
 /// - The input contains unsupported constructs
-pub fn parse(s: &str) -> Result<Edn, String> {
-  let xs = cirru_parser::parse(s)?;
+pub fn parse(s: &str) -> EdnResult<Edn> {
+  let xs = cirru_parser::parse(s).map_err(|e| EdnError::from_parse_error_detailed(e, s))?;
   if xs.len() == 1 {
     match &xs[0] {
-      Cirru::Leaf(s) => Err(format!("expected expr for data, got leaf: {s}")),
-      Cirru::List(_) => extract_cirru_edn(&xs[0]),
+      Cirru::Leaf(s) => Err(EdnError::structure(
+        format!("expected expr for data, got leaf: {s}"),
+        vec![],
+        Some(&xs[0]),
+      )),
+      Cirru::List(_) => extract_cirru_edn_with_path(&xs[0], vec![]),
     }
   } else {
-    Err(format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs))
+    Err(EdnError::structure(
+      format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs),
+      vec![],
+      None,
+    ))
   }
 }
 
-fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
+fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn> {
   match node {
     Cirru::Leaf(s) => match &**s {
       "nil" => Ok(Edn::Nil),
       "true" => Ok(Edn::Bool(true)),
       "false" => Ok(Edn::Bool(false)),
-      "" => Err(String::from("empty string is invalid for edn")),
+      "" => Err(EdnError::value(
+        "empty string is invalid for edn",
+        path.clone(),
+        Some(node),
+      )),
       s1 => match s1.chars().next().unwrap() {
         '\'' => Ok(Edn::Symbol(s1[1..].into())),
         ':' => Ok(Edn::tag(&s1[1..])),
@@ -205,14 +220,22 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
           if let Ok(f) = s1.trim().parse::<f64>() {
             Ok(Edn::Number(f))
           } else {
-            Err(format!("unknown token for edn value: {s1:?}"))
+            Err(EdnError::value(
+              format!("unknown token for edn value: {s1:?}"),
+              path.clone(),
+              Some(node),
+            ))
           }
         }
       },
     },
     Cirru::List(xs) => {
       if xs.is_empty() {
-        Err(String::from("empty expr is invalid for edn"))
+        Err(EdnError::structure(
+          "empty expr is invalid for edn",
+          path.clone(),
+          Some(node),
+        ))
       } else {
         match &xs[0] {
           Cirru::Leaf(s) => match &**s {
@@ -220,38 +243,42 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               if xs.len() == 2 {
                 Ok(Edn::Quote(xs[1].to_owned()))
               } else {
-                Err(String::from("missing edn quote value"))
+                Err(EdnError::structure("missing edn quote value", path.clone(), Some(node)))
               }
             }
             "do" => {
               let mut ret: Option<Edn> = None;
 
-              for x in xs.iter().skip(1) {
+              for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
                 if ret.is_some() {
-                  return Err(String::from("multiple values in do"));
+                  return Err(EdnError::structure("multiple values in do", path.clone(), Some(node)));
                 }
-                ret = Some(extract_cirru_edn(x)?);
+                let mut child_path = path.clone();
+                child_path.push(i);
+                ret = Some(extract_cirru_edn_with_path(x, child_path)?);
               }
               if ret.is_none() {
-                return Err(String::from("missing edn do value"));
+                return Err(EdnError::structure("missing edn do value", path.clone(), Some(node)));
               }
-              ret.ok_or_else(|| String::from("missing edn do value"))
+              ret.ok_or_else(|| EdnError::structure("missing edn do value", path.clone(), Some(node)))
             }
             "::" => {
               let mut tag: Option<Edn> = None;
               let mut extra: Vec<Edn> = vec![];
-              for x in xs.iter().skip(1) {
+              for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
+                let mut child_path = path.clone();
+                child_path.push(i);
                 if tag.is_some() {
-                  extra.push(extract_cirru_edn(x)?);
+                  extra.push(extract_cirru_edn_with_path(x, child_path)?);
                   continue;
                 } else {
-                  tag = Some(extract_cirru_edn(x)?);
+                  tag = Some(extract_cirru_edn_with_path(x, child_path)?);
                 }
               }
               if let Some(x0) = tag {
@@ -260,16 +287,22 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                   extra,
                 }))
               } else {
-                Err(String::from("missing edn :: fst value"))
+                Err(EdnError::structure(
+                  "missing edn :: fst value",
+                  path.clone(),
+                  Some(node),
+                ))
               }
             }
             "[]" => {
               let mut ys: Vec<Edn> = Vec::with_capacity(xs.len() - 1);
-              for x in xs.iter().skip(1) {
+              for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
-                match extract_cirru_edn(x) {
+                let mut child_path = path.clone();
+                child_path.push(i);
+                match extract_cirru_edn_with_path(x, child_path) {
                   Ok(v) => ys.push(v),
                   Err(v) => return Err(v),
                 }
@@ -279,11 +312,13 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             "#{}" => {
               #[allow(clippy::mutable_key_type)]
               let mut ys: HashSet<Edn> = HashSet::new();
-              for x in xs.iter().skip(1) {
+              for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
-                match extract_cirru_edn(x) {
+                let mut child_path = path.clone();
+                child_path.push(i);
+                match extract_cirru_edn_with_path(x, child_path) {
                   Ok(v) => {
                     ys.insert(v);
                   }
@@ -295,20 +330,47 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
             "{}" => {
               #[allow(clippy::mutable_key_type)]
               let mut zs: HashMap<Edn, Edn> = HashMap::new();
-              for x in xs.iter().skip(1) {
+              for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
+                let mut child_path = path.clone();
+                child_path.push(i);
                 match x {
-                  Cirru::Leaf(s) => return Err(format!("expected a pair, invalid map entry: {s}")),
+                  Cirru::Leaf(s) => {
+                    return Err(EdnError::structure(
+                      format!("expected a pair, invalid map entry: {s}"),
+                      child_path,
+                      Some(node),
+                    ));
+                  }
                   Cirru::List(ys) => {
                     if ys.len() == 2 {
-                      match (extract_cirru_edn(&ys[0]), extract_cirru_edn(&ys[1])) {
+                      let mut k_path = child_path.clone();
+                      k_path.push(0);
+                      let mut v_path = child_path.clone();
+                      v_path.push(1);
+                      match (
+                        extract_cirru_edn_with_path(&ys[0], k_path.clone()),
+                        extract_cirru_edn_with_path(&ys[1], v_path.clone()),
+                      ) {
                         (Ok(k), Ok(v)) => {
                           zs.insert(k, v);
                         }
-                        (Err(e), _) => return Err(format!("invalid map entry `{}` from `{}`", e, &ys[0])),
-                        (Ok(k), Err(e)) => return Err(format!("invalid map entry for `{k}`, got {e}")),
+                        (Err(e), _) => {
+                          return Err(EdnError::structure(
+                            format!("invalid map entry `{}` from `{}`", e, &ys[0]),
+                            k_path,
+                            Some(node),
+                          ));
+                        }
+                        (Ok(k), Err(e)) => {
+                          return Err(EdnError::structure(
+                            format!("invalid map entry for `{k}`, got {e}"),
+                            v_path,
+                            Some(node),
+                          ));
+                        }
                       }
                     }
                   }
@@ -320,48 +382,90 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
               if xs.len() >= 3 {
                 let name = match &xs[1] {
                   Cirru::Leaf(s) => EdnTag::new(s.strip_prefix(':').unwrap_or(s)),
-                  Cirru::List(e) => return Err(format!("expected record name in string: {e:?}")),
+                  Cirru::List(e) => {
+                    let mut name_path = path.clone();
+                    name_path.push(1);
+                    return Err(EdnError::structure(
+                      format!("expected record name in string: {e:?}"),
+                      name_path,
+                      Some(node),
+                    ));
+                  }
                 };
                 let mut entries: Vec<(EdnTag, Edn)> = Vec::with_capacity(xs.len() - 1);
 
-                for x in xs.iter().skip(2) {
+                for (i, x) in xs.iter().enumerate().skip(2) {
                   if is_comment(x) {
                     continue;
                   }
+                  let mut child_path = path.clone();
+                  child_path.push(i);
                   match x {
-                    Cirru::Leaf(s) => return Err(format!("expected record, invalid record entry: {s}")),
+                    Cirru::Leaf(s) => {
+                      return Err(EdnError::structure(
+                        format!("expected record, invalid record entry: {s}"),
+                        child_path,
+                        Some(node),
+                      ));
+                    }
                     Cirru::List(ys) => {
                       if ys.len() == 2 {
-                        match (&ys[0], extract_cirru_edn(&ys[1])) {
+                        let mut v_path = child_path.clone();
+                        v_path.push(1);
+                        match (&ys[0], extract_cirru_edn_with_path(&ys[1], v_path.clone())) {
                           (Cirru::Leaf(s), Ok(v)) => {
                             entries.push((EdnTag::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
-                          (Cirru::Leaf(s), Err(e)) => return Err(format!("invalid record value for `{s}`, got: {e}")),
-                          (Cirru::List(zs), _) => return Err(format!("invalid list as record key: {zs:?}")),
+                          (Cirru::Leaf(s), Err(e)) => {
+                            return Err(EdnError::structure(
+                              format!("invalid record value for `{s}`, got: {e}"),
+                              v_path,
+                              Some(node),
+                            ));
+                          }
+                          (Cirru::List(zs), _) => {
+                            let mut k_path = child_path.clone();
+                            k_path.push(0);
+                            return Err(EdnError::structure(
+                              format!("invalid list as record key: {zs:?}"),
+                              k_path,
+                              Some(node),
+                            ));
+                          }
                         }
                       } else {
-                        return Err(format!("expected pair of 2: {ys:?}"));
+                        return Err(EdnError::structure(
+                          format!("expected pair of 2: {ys:?}"),
+                          child_path,
+                          Some(node),
+                        ));
                       }
                     }
                   }
                 }
                 if entries.is_empty() {
-                  return Err(String::from("empty record is invalid"));
+                  return Err(EdnError::structure("empty record is invalid", path.clone(), Some(node)));
                 }
                 Ok(Edn::Record(EdnRecordView {
                   tag: name,
                   pairs: entries,
                 }))
               } else {
-                Err(String::from("insufficient items for edn record"))
+                Err(EdnError::structure(
+                  "insufficient items for edn record",
+                  path.clone(),
+                  Some(node),
+                ))
               }
             }
             "buf" => {
               let mut ys: Vec<u8> = Vec::with_capacity(xs.len() - 1);
-              for x in xs.iter().skip(1) {
+              for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
                   continue;
                 }
+                let mut child_path = path.clone();
+                child_path.push(i);
                 match x {
                   Cirru::Leaf(y) => {
                     if y.len() == 2 {
@@ -370,30 +474,60 @@ fn extract_cirru_edn(node: &Cirru) -> Result<Edn, String> {
                           if b.len() == 1 {
                             ys.push(b[0])
                           } else {
-                            return Err(format!("hex for buffer might be too large, got: {b:?}"));
+                            return Err(EdnError::value(
+                              format!("hex for buffer might be too large, got: {b:?}"),
+                              child_path,
+                              Some(node),
+                            ));
                           }
                         }
-                        Err(e) => return Err(format!("expected length 2 hex string in buffer, got: {y} {e}")),
+                        Err(e) => {
+                          return Err(EdnError::value(
+                            format!("expected length 2 hex string in buffer, got: {y} {e}"),
+                            child_path,
+                            Some(node),
+                          ));
+                        }
                       }
                     } else {
-                      return Err(format!("expected length 2 hex string in buffer, got: {y}"));
+                      return Err(EdnError::value(
+                        format!("expected length 2 hex string in buffer, got: {y}"),
+                        child_path,
+                        Some(node),
+                      ));
                     }
                   }
-                  _ => return Err(format!("expected hex string in buffer, got: {x}")),
+                  _ => {
+                    return Err(EdnError::value(
+                      format!("expected hex string in buffer, got: {x}"),
+                      child_path,
+                      Some(node),
+                    ));
+                  }
                 }
               }
               Ok(Edn::Buffer(ys))
             }
             "atom" => {
               if xs.len() == 2 {
-                Ok(Edn::Atom(Box::new(extract_cirru_edn(&xs[1])?)))
+                let mut child_path = path.clone();
+                child_path.push(1);
+                Ok(Edn::Atom(Box::new(extract_cirru_edn_with_path(&xs[1], child_path)?)))
               } else {
-                Err(String::from("missing edn atom value"))
+                Err(EdnError::structure("missing edn atom value", path.clone(), Some(node)))
               }
             }
-            a => Err(format!("invalid operator for edn: {a}")),
+            a => Err(EdnError::structure(
+              format!("invalid operator for edn: {a}"),
+              path.clone(),
+              Some(node),
+            )),
           },
-          Cirru::List(a) => Err(format!("invalid nodes for edn: {a:?}")),
+          Cirru::List(a) => Err(EdnError::structure(
+            format!("invalid nodes for edn: {a:?}"),
+            path.clone(),
+            Some(node),
+          )),
         }
       }
     }

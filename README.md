@@ -267,6 +267,41 @@ atom, which translates to a reference to a value:
 atom 1
 ```
 
+### Error Handling (v0.7.0+)
+
+With cirru_parser 0.2.0, Cirru EDN provides enhanced error reporting with position information:
+
+```rust
+use cirru_edn::{parse, EdnError};
+
+match parse("[] 1 2 invalid") {
+    Ok(data) => println!("Parsed: {:?}", data),
+    Err(EdnError::ValueError { message, position }) => {
+        println!("Error: {}", message);
+        if let Some(pos) = position {
+            println!("  at line {}, column {}, byte {}",
+                     pos.line, pos.column, pos.offset);
+        }
+    }
+    Err(e) => println!("Other error: {}", e),
+}
+```
+
+Error types include:
+
+- `ParseError` - Syntax errors from the parser
+- `StructureError` - Invalid EDN structure
+- `ValueError` - Invalid values (e.g., bad hex, invalid tokens)
+- `DeserializationError` - Serde deserialization errors
+
+See [ERROR_HANDLING.md](ERROR_HANDLING.md) for detailed documentation and examples.
+
+Run the error demo:
+
+```bash
+cargo run --example error_demo
+```
+
 ### License
 
 MIT
