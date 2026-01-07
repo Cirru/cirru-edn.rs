@@ -201,7 +201,7 @@ impl fmt::Display for Edn {
 
 /// check if a char is simple enough to be printed without quotes
 pub fn is_simple_char(c: char) -> bool {
-  matches!(c, '0'..='9' | 'A'..='Z' | 'a'..='z' | '-' | '?' | '.' | '$' | ',') || cjk::is_cjk_codepoint(c)
+  matches!(c, '0'..='9' | 'A'..='Z' | 'a'..='z' | '-' | '?' | '.' | '$' | ',' | '\'') || cjk::is_cjk_codepoint(c)
 }
 
 fn is_simple_token(tok: &str) -> bool {
