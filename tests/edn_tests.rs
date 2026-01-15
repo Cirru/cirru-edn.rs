@@ -95,6 +95,8 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::tag("a"), true)?, "\ndo :a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a b"), true)?, "\ndo \"|a b\"\n");
+  assert_eq!(cirru_edn::format(&Edn::str("don't"), true)?, "\ndo |don't\n");
+  assert_eq!(cirru_edn::format(&Edn::str("a'b c"), true)?, "\ndo \"|a'b c\"\n");
 
   assert_eq!(
     cirru_edn::format(
