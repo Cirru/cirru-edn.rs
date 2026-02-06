@@ -60,7 +60,7 @@
 //! - `Tag` -> `{"__edn_tag": "value"}`
 //! - `Set` -> `{"__edn_set": [items]}`
 //! - `Buffer` -> `{"__edn_buffer": [bytes]}`
-//! - `Tuple` -> `{"__edn_tuple_tag": tag, "__edn_tuple_extra": [values]}`
+//! - `Tuple` -> `{"__edn_tuple_tag": tag, "__edn_tuple_extra": [values], "__edn_tuple_enum": enum_tag}` (enum_tag is optional)
 
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
@@ -105,8 +105,16 @@ impl Serialize for Edn {
         map.serialize_entry("__edn_quote", cirru)?;
         map.end()
       }
-      Edn::Tuple(EdnTupleView { tag, extra }) => {
-        let mut map = serializer.serialize_map(Some(2))?;
+      Edn::Tuple(EdnTupleView {
+        tag,
+        enum_tag,
+        extra,
+      }) => {
+        let n = if enum_tag.is_some() { 3 } else { 2 };
+        let mut map = serializer.serialize_map(Some(n))?;
+        if let Some(et) = enum_tag {
+          map.serialize_entry("__edn_tuple_enum", et.as_ref())?;
+        }
         map.serialize_entry("__edn_tuple_tag", tag.as_ref())?;
         map.serialize_entry("__edn_tuple_extra", extra)?;
         map.end()
@@ -273,14 +281,16 @@ impl<'de> Deserialize<'de> for Edn {
                   Err(de::Error::custom("Invalid tag data"))
                 }
               }
-              "__edn_tuple_tag" => {
+              "__edn_tuple_tag" | "__edn_tuple_enum" | "__edn_tuple_extra" => {
                 if let (Some(tag), Some(extra)) = (
                   special_data.get("__edn_tuple_tag"),
                   special_data.get("__edn_tuple_extra"),
                 ) {
+                  let enum_tag = special_data.get("__edn_tuple_enum").map(|x| Arc::new(x.clone()));
                   if let Edn::List(EdnListView(extra_vec)) = extra {
                     Ok(Edn::Tuple(EdnTupleView {
                       tag: Arc::new(tag.clone()),
+                      enum_tag,
                       extra: extra_vec.clone(),
                     }))
                   } else {

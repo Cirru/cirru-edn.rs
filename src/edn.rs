@@ -143,14 +143,18 @@ impl fmt::Display for Edn {
         }
       }
       Self::Quote(v) => f.write_fmt(format_args!("(quote {v})")),
-      Self::Tuple(EdnTupleView { tag, extra }) => {
+      Self::Tuple(EdnTupleView { tag, enum_tag, extra }) => {
         let mut extra_str = String::new();
         for item in extra {
           extra_str.push(' ');
           extra_str.push_str(&item.to_string());
         }
 
-        f.write_fmt(format_args!("(:: {tag}{extra_str})"))
+        if let Some(et) = enum_tag {
+          f.write_fmt(format_args!("(%:: {et} {tag}{extra_str})"))
+        } else {
+          f.write_fmt(format_args!("(:: {tag}{extra_str})"))
+        }
       }
       Self::List(EdnListView(xs)) => {
         f.write_str("([]")?;
@@ -244,9 +248,14 @@ impl Hash for Edn {
         "quote:".hash(_state);
         v.hash(_state);
       }
-      Self::Tuple(EdnTupleView { tag: pair, extra }) => {
+      Self::Tuple(EdnTupleView {
+        tag: pair,
+        enum_tag,
+        extra,
+      }) => {
         "tuple".hash(_state);
         pair.hash(_state);
+        enum_tag.hash(_state);
         extra.hash(_state);
       }
       Self::List(v) => {
@@ -438,6 +447,15 @@ impl Edn {
   pub fn tuple(tag: Self, extra: Vec<Self>) -> Self {
     Edn::Tuple(EdnTupleView {
       tag: Arc::new(tag),
+      enum_tag: None,
+      extra,
+    })
+  }
+  /// create new enum tuple
+  pub fn enum_tuple(enum_tag: Self, tag: Self, extra: Vec<Self>) -> Self {
+    Edn::Tuple(EdnTupleView {
+      tag: Arc::new(tag),
+      enum_tag: Some(Arc::new(enum_tag)),
       extra,
     })
   }
@@ -572,8 +590,9 @@ impl Edn {
   /// get Tuple variant in struct
   pub fn view_tuple(&self) -> Result<EdnTupleView, String> {
     match self {
-      Edn::Tuple(EdnTupleView { tag, extra }) => Ok(EdnTupleView {
+      Edn::Tuple(EdnTupleView { tag, enum_tag, extra }) => Ok(EdnTupleView {
         tag: tag.to_owned(),
+        enum_tag: enum_tag.to_owned(),
         extra: extra.to_owned(),
       }),
       a => Err(format!("failed to convert to tuple: {a}")),
@@ -1175,7 +1194,21 @@ where
 
 impl From<(Arc<Edn>, Vec<Edn>)> for Edn {
   fn from((tag, extra): (Arc<Edn>, Vec<Edn>)) -> Edn {
-    Edn::Tuple(EdnTupleView { tag, extra })
+    Edn::Tuple(EdnTupleView {
+      tag,
+      enum_tag: None,
+      extra,
+    })
+  }
+}
+
+impl From<(Arc<Edn>, Arc<Edn>, Vec<Edn>)> for Edn {
+  fn from((enum_tag, tag, extra): (Arc<Edn>, Arc<Edn>, Vec<Edn>)) -> Edn {
+    Edn::Tuple(EdnTupleView {
+      tag,
+      enum_tag: Some(enum_tag),
+      extra,
+    })
   }
 }
 
