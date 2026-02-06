@@ -247,6 +247,12 @@ extra values can be added to tuple since `0.3`:
 :: :a 1 |extra :l
 ```
 
+newly added `%::` for representing enums with a type tag:
+
+```cirru
+%:: :e :a 1 |extra :l
+```
+
 a record, notice that now it's all using tags:
 
 ```cirru

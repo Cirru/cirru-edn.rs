@@ -33,11 +33,13 @@ fn edn_parsing() {
   );
 
   assert_eq!(
-    Ok(Edn::tuple(
-      Edn::tag("a"),
-      vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")]
-    )),
+    Ok(Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")])),
     cirru_edn::parse(":: :a 1 2 |b")
+  );
+
+  assert_eq!(
+    Ok(Edn::enum_tuple(Edn::tag("e"), Edn::tag("a"), vec![Edn::Number(1.0)])),
+    cirru_edn::parse("%:: :e :a 1")
   );
 
   assert_eq!(Ok(Edn::str("中文")), cirru_edn::parse("do |中文"));
@@ -94,6 +96,12 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::sym("a"), true)?, "\ndo 'a\n");
   assert_eq!(cirru_edn::format(&Edn::tag("a"), true)?, "\ndo :a\n");
   assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
+
+  assert_eq!(
+    cirru_edn::format(&Edn::enum_tuple(Edn::tag("e"), Edn::tag("a"), vec![Edn::Number(1.0)]), true)?,
+    "\n%:: :e :a 1\n"
+  );
+
   assert_eq!(cirru_edn::format(&Edn::str("a b"), true)?, "\ndo \"|a b\"\n");
   assert_eq!(cirru_edn::format(&Edn::str("don't"), true)?, "\ndo |don't\n");
   assert_eq!(cirru_edn::format(&Edn::str("a'b c"), true)?, "\ndo \"|a'b c\"\n");
