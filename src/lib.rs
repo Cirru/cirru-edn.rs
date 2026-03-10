@@ -284,11 +284,44 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
               if let Some(x0) = tag {
                 Ok(Edn::Tuple(EdnTupleView {
                   tag: Arc::new(x0),
+                  enum_tag: None,
                   extra,
                 }))
               } else {
                 Err(EdnError::structure(
                   "missing edn :: fst value",
+                  path.clone(),
+                  Some(node),
+                ))
+              }
+            }
+            "%::" => {
+              let mut enum_tag: Option<Edn> = None;
+              let mut tag: Option<Edn> = None;
+              let mut extra: Vec<Edn> = vec![];
+              for (i, x) in xs.iter().enumerate().skip(1) {
+                if is_comment(x) {
+                  continue;
+                }
+                let mut child_path = path.clone();
+                child_path.push(i);
+                if enum_tag.is_none() {
+                  enum_tag = Some(extract_cirru_edn_with_path(x, child_path)?);
+                } else if tag.is_none() {
+                  tag = Some(extract_cirru_edn_with_path(x, child_path)?);
+                } else {
+                  extra.push(extract_cirru_edn_with_path(x, child_path)?);
+                }
+              }
+              if let (Some(e0), Some(x0)) = (enum_tag, tag) {
+                Ok(Edn::Tuple(EdnTupleView {
+                  tag: Arc::new(x0),
+                  enum_tag: Some(Arc::new(e0)),
+                  extra,
+                }))
+              } else {
+                Err(EdnError::structure(
+                  "missing edn %:: enum_tag or tag value",
                   path.clone(),
                   Some(node),
                 ))
@@ -609,8 +642,12 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 
       Cirru::List(ys)
     }
-    Edn::Tuple(EdnTupleView { tag, extra }) => {
-      let mut ys: Vec<Cirru> = vec!["::".into(), assemble_cirru_node(tag)];
+    Edn::Tuple(EdnTupleView { tag, enum_tag, extra }) => {
+      let mut ys: Vec<Cirru> = if let Some(et) = enum_tag {
+        vec!["%::".into(), assemble_cirru_node(et), assemble_cirru_node(tag)]
+      } else {
+        vec!["::".into(), assemble_cirru_node(tag)]
+      };
       for item in extra {
         ys.push(assemble_cirru_node(item))
       }
