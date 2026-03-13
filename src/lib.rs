@@ -119,6 +119,11 @@ pub use edn::{
 pub use error::{EdnError, EdnResult, Position};
 pub use tag::EdnTag;
 
+/// Returns the version of the crate.
+pub fn version() -> &'static str {
+  env!("CARGO_PKG_VERSION")
+}
+
 // Backward compatible type alias
 #[deprecated(since = "0.7.0", note = "Use EdnError instead")]
 pub type EdnResultString<T> = Result<T, String>;
