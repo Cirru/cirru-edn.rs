@@ -33,7 +33,10 @@ fn edn_parsing() {
   );
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")])),
+    Ok(Edn::tuple(
+      Edn::tag("a"),
+      vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")]
+    )),
     cirru_edn::parse(":: :a 1 2 |b")
   );
 
@@ -98,7 +101,10 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
 
   assert_eq!(
-    cirru_edn::format(&Edn::enum_tuple(Edn::tag("e"), Edn::tag("a"), vec![Edn::Number(1.0)]), true)?,
+    cirru_edn::format(
+      &Edn::enum_tuple(Edn::tag("e"), Edn::tag("a"), vec![Edn::Number(1.0)]),
+      true
+    )?,
     "\n%:: :e :a 1\n"
   );
 

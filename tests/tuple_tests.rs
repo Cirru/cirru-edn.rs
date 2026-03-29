@@ -1,4 +1,4 @@
-use cirru_edn::{Edn, parse, format};
+use cirru_edn::{Edn, format, parse};
 use std::sync::Arc;
 
 #[test]

@@ -145,6 +145,11 @@ impl Edn {
 
   /// Predefined false constant for convenience
   pub const FALSE: Edn = Edn::Bool(false);
+
+  /// Convert an EDN value into a Cirru AST node.
+  pub fn cirru(&self) -> Cirru {
+    assemble_cirru_node(self)
+  }
 }
 
 pub use serde_support::{from_edn, to_edn};
@@ -195,7 +200,7 @@ pub fn parse(s: &str) -> EdnResult<Edn> {
         vec![],
         Some(&xs[0]),
       )),
-      Cirru::List(_) => extract_cirru_edn_with_path(&xs[0], vec![]),
+      Cirru::List(_) => extract_cirru_edn(&xs[0]),
     }
   } else {
     Err(EdnError::structure(
@@ -204,6 +209,14 @@ pub fn parse(s: &str) -> EdnResult<Edn> {
       None,
     ))
   }
+}
+
+/// Extract EDN value from a Cirru AST node.
+///
+/// This is useful when caller already has parsed Cirru tree and wants
+/// to decode one expression without going through string parsing again.
+pub fn extract_cirru_edn(node: &Cirru) -> EdnResult<Edn> {
+  extract_cirru_edn_with_path(node, vec![])
 }
 
 fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn> {
@@ -719,8 +732,30 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 /// - The function automatically wraps single literals in `do` expressions
 /// - Inline formatting produces more compact output, while multiline formatting is more readable
 pub fn format(data: &Edn, use_inline: bool) -> Result<String, String> {
-  match assemble_cirru_node(data) {
+  match data.cirru() {
     Cirru::Leaf(s) => cirru_parser::format(&[vec!["do", &*s].into()], use_inline.into()),
     Cirru::List(xs) => cirru_parser::format(&[(Cirru::List(xs))], use_inline.into()),
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn exposes_extract_api_for_cirru_ast() {
+    let node = Cirru::List(vec![Cirru::leaf("[]"), Cirru::leaf("1"), Cirru::leaf("2")]);
+    let value = extract_cirru_edn(&node).expect("should decode list from AST");
+    assert!(matches!(value, Edn::List(_)));
+  }
+
+  #[test]
+  fn exposes_short_cirru_method_on_edn() {
+    let value = Edn::map_from_iter([(Edn::tag("a"), Edn::Number(1.0))]);
+    let node = value.cirru();
+    let Cirru::List(items) = node else {
+      panic!("map should assemble into list node");
+    };
+    assert_eq!(items.first(), Some(&Cirru::leaf("{}")));
   }
 }
