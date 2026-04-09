@@ -29,7 +29,6 @@ jobs:
           # cargo run --example main
           cargo run --example buffer
           cargo run --example from
-          # cargo run --example bincode
           cargo run --example serde_demo
           cargo run --example readme_test
           cargo run --example struct_key_demo

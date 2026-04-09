@@ -105,11 +105,7 @@ impl Serialize for Edn {
         map.serialize_entry("__edn_quote", cirru)?;
         map.end()
       }
-      Edn::Tuple(EdnTupleView {
-        tag,
-        enum_tag,
-        extra,
-      }) => {
+      Edn::Tuple(EdnTupleView { tag, enum_tag, extra }) => {
         let n = if enum_tag.is_some() { 3 } else { 2 };
         let mut map = serializer.serialize_map(Some(n))?;
         if let Some(et) = enum_tag {
