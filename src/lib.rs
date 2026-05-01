@@ -353,10 +353,8 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                 }
                 let mut child_path = path.clone();
                 child_path.push(i);
-                match extract_cirru_edn_with_path(x, child_path) {
-                  Ok(v) => ys.push(v),
-                  Err(v) => return Err(v),
-                }
+                let v = extract_cirru_edn_with_path(x, child_path)?;
+                ys.push(v);
               }
               Ok(Edn::List(EdnListView(ys)))
             }
@@ -369,12 +367,8 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                 }
                 let mut child_path = path.clone();
                 child_path.push(i);
-                match extract_cirru_edn_with_path(x, child_path) {
-                  Ok(v) => {
-                    ys.insert(v);
-                  }
-                  Err(v) => return Err(v),
-                }
+                let v = extract_cirru_edn_with_path(x, child_path)?;
+                ys.insert(v);
               }
               Ok(Edn::Set(EdnSetView(ys)))
             }
