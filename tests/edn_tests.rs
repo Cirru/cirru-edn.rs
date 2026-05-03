@@ -179,8 +179,7 @@ fn set_writing() -> Result<(), String> {
 }
 
 const RECORD_DEMO: &str = r#"
-%{} :Demo
-  :a 1
+%{} :Demo (:a 1)
   :b 2
   :c $ [] 1 2 3
 "#;
@@ -395,7 +394,7 @@ fn test_format_record() -> Result<(), String> {
   });
   assert_eq!(
     cirru_edn::format(&record, true)?,
-    "\n%{} :Demo\n  :a 1 (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
+    "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
   );
 
   let record_unstable_order = Edn::Record(EdnRecordView {
@@ -413,7 +412,7 @@ fn test_format_record() -> Result<(), String> {
 
   assert_eq!(
     cirru_edn::format(&record_unstable_order, true)?,
-    "\n%{} :Demo\n  :a 1 (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
+    "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
   );
 
   Ok(())
