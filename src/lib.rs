@@ -404,7 +404,7 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                         }
                         (Err(e), _) => {
                           return Err(EdnError::structure(
-                            format!("invalid map entry `{}` from `{}`", e, &ys[0]),
+                            format!("invalid map entry `{}` from `{}`", e, ys[0]),
                             k_path,
                             Some(node),
                           ));
