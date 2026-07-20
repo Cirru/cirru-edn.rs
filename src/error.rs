@@ -50,6 +50,18 @@ impl fmt::Display for Position {
   }
 }
 
+/// Format a nested Cirru path using the conventional `@1.2.3` notation.
+fn format_path(path: &[usize]) -> String {
+  let mut result = String::from("@");
+  for (index, item) in path.iter().enumerate() {
+    if index > 0 {
+      result.push('.');
+    }
+    result.push_str(&item.to_string());
+  }
+  result
+}
+
 /// Errors that can occur during EDN parsing and manipulation.
 #[derive(Debug, Clone, PartialEq)]
 pub enum EdnError {
@@ -155,7 +167,7 @@ impl fmt::Display for EdnError {
       } => {
         write!(f, "Structure error")?;
         if !path.is_empty() {
-          write!(f, " at {path:?}")?;
+          write!(f, " at {}", format_path(path))?;
         }
         write!(f, ": {message}")?;
         if let Some(preview) = node_preview {
@@ -170,7 +182,7 @@ impl fmt::Display for EdnError {
       } => {
         write!(f, "Value error")?;
         if !path.is_empty() {
-          write!(f, " at {path:?}")?;
+          write!(f, " at {}", format_path(path))?;
         }
         write!(f, ": {message}")?;
         if let Some(preview) = node_preview {
@@ -190,6 +202,16 @@ impl From<&str> for EdnError {
     EdnError::ParseError {
       original: message.to_string(),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::format_path;
+
+  #[test]
+  fn formats_paths_with_at_and_dot_separators() {
+    assert_eq!(format_path(&[1, 2, 3, 4]), "@1.2.3.4");
   }
 }
 
