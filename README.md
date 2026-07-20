@@ -275,20 +275,14 @@ atom 1
 
 ### Error Handling (v0.7.0+)
 
-With cirru_parser 0.2.0, Cirru EDN provides enhanced error reporting with position information:
+With cirru_parser 0.2.0, Cirru EDN provides enhanced syntax-error reporting with source position information:
 
 ```rust
 use cirru_edn::{parse, EdnError};
 
 match parse("[] 1 2 invalid") {
     Ok(data) => println!("Parsed: {:?}", data),
-    Err(EdnError::ValueError { message, position }) => {
-        println!("Error: {}", message);
-        if let Some(pos) = position {
-            println!("  at line {}, column {}, byte {}",
-                     pos.line, pos.column, pos.offset);
-        }
-    }
+    Err(EdnError::ParseError { original }) => println!("Error: {}", original),
     Err(e) => println!("Other error: {}", e),
 }
 ```
@@ -299,6 +293,10 @@ Error types include:
 - `StructureError` - Invalid EDN structure
 - `ValueError` - Invalid values (e.g., bad hex, invalid tokens)
 - `DeserializationError` - Serde deserialization errors
+
+Structure and value errors include a nested Cirru path in `@1.2.3` notation; for example,
+`@1.2.3.4` means indices 1, 2, 3, and 4 from the root node. Syntax errors include
+line/column and byte-offset information when provided by the parser.
 
 See [ERROR_HANDLING.md](ERROR_HANDLING.md) for detailed documentation and examples.
 

@@ -38,3 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.21] - Previous versions
 
 See git history for changes in previous versions.
+
+## [0.7.8] - 2026-07-21
+
+### Changed
+
+- Format nested structure/value error paths as `@1.2.3.4`.
+- Correct error handling documentation to match the public `EdnError` API.
