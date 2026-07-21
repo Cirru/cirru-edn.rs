@@ -203,8 +203,9 @@ pub fn parse(s: &str) -> EdnResult<Edn> {
       Cirru::List(_) => extract_cirru_edn(&xs[0]),
     }
   } else {
+    let preview = cirru_parser::format_expr_one_liner(&Cirru::List(xs.to_vec())).unwrap_or_else(|_| "<expr>".into());
     Err(EdnError::structure(
-      format!("Expected 1 expr for edn, got length {}: {:?} ", xs.len(), xs),
+      format!("Expected 1 expr for edn, got length {}: {preview}", xs.len()),
       vec![],
       None,
     ))
@@ -403,18 +404,14 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                           zs.insert(k, v);
                         }
                         (Err(e), _) => {
-                          return Err(EdnError::structure(
-                            format!("invalid map entry `{}` from `{}`", e, ys[0]),
+                          return Err(EdnError::wrap_structure(
+                            format!("invalid map entry key `{}`", ys[0]),
                             k_path,
-                            Some(node),
+                            &e,
                           ));
                         }
                         (Ok(k), Err(e)) => {
-                          return Err(EdnError::structure(
-                            format!("invalid map entry for `{k}`, got {e}"),
-                            v_path,
-                            Some(node),
-                          ));
+                          return Err(EdnError::wrap_structure(format!("invalid map entry for `{k}`"), v_path, &e));
                         }
                       }
                     }
@@ -427,12 +424,13 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
               if xs.len() >= 3 {
                 let name = match &xs[1] {
                   Cirru::Leaf(s) => EdnTag::new(s.strip_prefix(':').unwrap_or(s)),
-                  Cirru::List(e) => {
+                  Cirru::List(_) => {
                     let mut name_path = path.clone();
                     name_path.push(1);
-                    return Err(EdnError::structure(
-                      format!("expected record name in string: {e:?}"),
+                    return Err(EdnError::structure_focused(
+                      "expected record name in string, got a list".to_string(),
                       name_path,
+                      &[1],
                       Some(node),
                     ));
                   }
@@ -447,9 +445,10 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                   child_path.push(i);
                   match x {
                     Cirru::Leaf(s) => {
-                      return Err(EdnError::structure(
+                      return Err(EdnError::structure_focused(
                         format!("expected record, invalid record entry: {s}"),
                         child_path,
+                        &[i],
                         Some(node),
                       ));
                     }
@@ -462,26 +461,24 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                             entries.push((EdnTag::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
                           (Cirru::Leaf(s), Err(e)) => {
-                            return Err(EdnError::structure(
-                              format!("invalid record value for `{s}`, got: {e}"),
-                              v_path,
-                              Some(node),
-                            ));
+                            return Err(EdnError::wrap_structure(format!("invalid record value for `{s}`"), v_path, &e));
                           }
-                          (Cirru::List(zs), _) => {
+                          (Cirru::List(_), _) => {
                             let mut k_path = child_path.clone();
                             k_path.push(0);
-                            return Err(EdnError::structure(
-                              format!("invalid list as record key: {zs:?}"),
+                            return Err(EdnError::structure_focused(
+                              "invalid list as record key, expected a tag or string".to_string(),
                               k_path,
+                              &[i, 0],
                               Some(node),
                             ));
                           }
                         }
                       } else {
-                        return Err(EdnError::structure(
-                          format!("expected pair of 2: {ys:?}"),
+                        return Err(EdnError::structure_focused(
+                          "expected pair of 2".to_string(),
                           child_path,
+                          &[i],
                           Some(node),
                         ));
                       }

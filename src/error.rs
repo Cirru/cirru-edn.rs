@@ -50,7 +50,9 @@ impl fmt::Display for Position {
   }
 }
 
-/// Format a nested Cirru path using the conventional `@1.2.3` notation.
+/// Format a nested Cirru path using the conventional `@1.2.3` notation,
+/// always absolute from the document root so it can be reliably parsed
+/// by tools/agents (never mixed with prose like "position N").
 fn format_path(path: &[usize]) -> String {
   let mut result = String::from("@");
   for (index, item) in path.iter().enumerate() {
@@ -109,37 +111,93 @@ impl EdnError {
     }
   }
 
-  /// Create a structure error with path and node preview
-  pub fn structure(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
-    let node_preview = node.and_then(|n| {
-      // Use one-liner format for cleaner, more readable output
-      cirru_parser::format_expr_one_liner(n).ok()
-    });
-    EdnError::StructureError {
-      message: message.into(),
-      path,
-      node_preview,
-    }
+/// Create a structure error with path and node preview, using `focus_path`
+/// for structural folding (relative to `node`) while `path` is used for display.
+pub fn structure_focused(
+  message: impl Into<String>,
+  path: Vec<usize>,
+  focus_path: &[usize],
+  node: Option<&Cirru>,
+) -> Self {
+  let node_preview = node.and_then(|n| {
+    let folded = cirru_parser::focus_cirru_preview(n, focus_path);
+    cirru_parser::format(std::slice::from_ref(&folded), false.into()).ok().map(|s| s.trim().to_string())
+  });
+  EdnError::StructureError {
+    message: message.into(),
+    path,
+    node_preview,
   }
+}
 
-  /// Create a value error with path and node preview
-  pub fn value(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
-    let node_preview = node.and_then(|n| {
-      // Use one-liner format for cleaner, more readable output
-      cirru_parser::format_expr_one_liner(n).ok()
-    });
-    EdnError::ValueError {
-      message: message.into(),
-      path,
-      node_preview,
-    }
+/// Create a structure error with path and node preview.
+/// The node is structurally folded along `path` before formatting.
+pub fn structure(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
+  let node_preview = node.and_then(|n| {
+    let folded = cirru_parser::focus_cirru_preview(n, &path);
+    cirru_parser::format(std::slice::from_ref(&folded), false.into()).ok().map(|s| s.trim().to_string())
+  });
+  EdnError::StructureError {
+    message: message.into(),
+    path,
+    node_preview,
   }
+}
+
+/// Create a value error with path and node preview.
+/// The node is structurally folded along `path` before formatting.
+pub fn value(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
+  let node_preview = node.and_then(|n| {
+    let folded = cirru_parser::focus_cirru_preview(n, &path);
+    cirru_parser::format(std::slice::from_ref(&folded), false.into()).ok().map(|s| s.trim().to_string())
+  });
+  EdnError::ValueError {
+    message: message.into(),
+    path,
+    node_preview,
+  }
+}
 
   /// Create a deserialization error with position
   pub fn deserialization(message: impl Into<String>, position: Option<Vec<u8>>) -> Self {
     EdnError::DeserializationError {
       message: message.into(),
       position,
+    }
+  }
+
+  /// Wrap an inner `EdnError` with a breadcrumb prefix describing the outer
+  /// context (e.g. which map key or record field it was found under),
+  /// WITHOUT re-formatting the inner error's own "Structure error at ..."
+  /// header. This keeps the final message to a single coordinate + a
+  /// readable breadcrumb trail, and reuses the innermost (most specific)
+  /// node preview instead of stacking multiple partial previews.
+  ///
+  /// The resulting error's `path` is the inner error's path when available
+  /// (already absolute from the document root), falling back to `fallback_path`
+  /// otherwise (e.g. when wrapping a `DeserializationError`).
+  pub fn wrap_structure(crumb: impl Into<String>, fallback_path: Vec<usize>, inner: &EdnError) -> Self {
+    let crumb = crumb.into();
+    match inner {
+      EdnError::StructureError {
+        message,
+        path,
+        node_preview,
+      }
+      | EdnError::ValueError {
+        message,
+        path,
+        node_preview,
+      } => EdnError::StructureError {
+        message: format!("{crumb}: {message}"),
+        path: path.clone(),
+        node_preview: node_preview.clone(),
+      },
+      other => EdnError::StructureError {
+        message: format!("{crumb}: {}", other.message()),
+        path: fallback_path,
+        node_preview: None,
+      },
     }
   }
 
@@ -169,9 +227,17 @@ impl fmt::Display for EdnError {
         if !path.is_empty() {
           write!(f, " at {}", format_path(path))?;
         }
-        write!(f, ": {message}")?;
+        write!(f, ": ")?;
+        for (i, line) in message.lines().enumerate() {
+          if i > 0 {
+            write!(f, "\n  ")?;
+          }
+          write!(f, "{line}")?;
+        }
         if let Some(preview) = node_preview {
-          write!(f, "\n  Node: {preview}")?;
+          for line in preview.lines() {
+            write!(f, "\n  {line}")?;
+          }
         }
         Ok(())
       }
@@ -184,9 +250,17 @@ impl fmt::Display for EdnError {
         if !path.is_empty() {
           write!(f, " at {}", format_path(path))?;
         }
-        write!(f, ": {message}")?;
+        write!(f, ": ")?;
+        for (i, line) in message.lines().enumerate() {
+          if i > 0 {
+            write!(f, "\n  ")?;
+          }
+          write!(f, "{line}")?;
+        }
         if let Some(preview) = node_preview {
-          write!(f, "\n  Node: {preview}")?;
+          for line in preview.lines() {
+            write!(f, "\n  {line}")?;
+          }
         }
         Ok(())
       }
