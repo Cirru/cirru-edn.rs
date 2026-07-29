@@ -38,3 +38,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.21] - Previous versions
 
 See git history for changes in previous versions.
+
+## [0.7.9] - 2026-07-21
+
+### Changed
+
+- Upgrade `cirru_parser` to `0.2.13`, which adds `focus_cirru_preview` for
+  structurally folding large Cirru trees down to just the erroring path and
+  a few nearby siblings (instead of dumping the entire tree).
+- `EdnError::structure`/`EdnError::value` node previews now use
+  `focus_cirru_preview` + `cirru_parser::format` (indented, structural)
+  instead of a flat one-liner, so large snapshot files no longer flood error
+  output.
+- Added `EdnError::structure_focused` for cases where the path used for
+  structural folding differs from the path shown in the error header.
+- Added `EdnError::wrap_structure` to compose nested "invalid entry in X"
+  wrapper errors without re-embedding the inner error's full `Display` text
+  (avoids duplicated "Structure error at ..." headers and duplicated node
+  previews across nesting levels).
+
+## [0.7.8] - 2026-07-21
+
+### Changed
+
+- Format nested structure/value error paths as `@1.2.3.4`.
+- Correct error handling documentation to match the public `EdnError` API.
