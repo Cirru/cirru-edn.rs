@@ -111,52 +111,58 @@ impl EdnError {
     }
   }
 
-/// Create a structure error with path and node preview, using `focus_path`
-/// for structural folding (relative to `node`) while `path` is used for display.
-pub fn structure_focused(
-  message: impl Into<String>,
-  path: Vec<usize>,
-  focus_path: &[usize],
-  node: Option<&Cirru>,
-) -> Self {
-  let node_preview = node.and_then(|n| {
-    let folded = cirru_parser::focus_cirru_preview(n, focus_path);
-    cirru_parser::format(std::slice::from_ref(&folded), false.into()).ok().map(|s| s.trim().to_string())
-  });
-  EdnError::StructureError {
-    message: message.into(),
-    path,
-    node_preview,
+  /// Create a structure error with path and node preview, using `focus_path`
+  /// for structural folding (relative to `node`) while `path` is used for display.
+  pub fn structure_focused(
+    message: impl Into<String>,
+    path: Vec<usize>,
+    focus_path: &[usize],
+    node: Option<&Cirru>,
+  ) -> Self {
+    let node_preview = node.and_then(|n| {
+      let folded = cirru_parser::focus_cirru_preview(n, focus_path);
+      cirru_parser::format(std::slice::from_ref(&folded), false.into())
+        .ok()
+        .map(|s| s.trim().to_string())
+    });
+    EdnError::StructureError {
+      message: message.into(),
+      path,
+      node_preview,
+    }
   }
-}
 
-/// Create a structure error with path and node preview.
-/// The node is structurally folded along `path` before formatting.
-pub fn structure(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
-  let node_preview = node.and_then(|n| {
-    let folded = cirru_parser::focus_cirru_preview(n, &path);
-    cirru_parser::format(std::slice::from_ref(&folded), false.into()).ok().map(|s| s.trim().to_string())
-  });
-  EdnError::StructureError {
-    message: message.into(),
-    path,
-    node_preview,
+  /// Create a structure error with path and node preview.
+  /// The node is structurally folded along `path` before formatting.
+  pub fn structure(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
+    let node_preview = node.and_then(|n| {
+      let folded = cirru_parser::focus_cirru_preview(n, &path);
+      cirru_parser::format(std::slice::from_ref(&folded), false.into())
+        .ok()
+        .map(|s| s.trim().to_string())
+    });
+    EdnError::StructureError {
+      message: message.into(),
+      path,
+      node_preview,
+    }
   }
-}
 
-/// Create a value error with path and node preview.
-/// The node is structurally folded along `path` before formatting.
-pub fn value(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
-  let node_preview = node.and_then(|n| {
-    let folded = cirru_parser::focus_cirru_preview(n, &path);
-    cirru_parser::format(std::slice::from_ref(&folded), false.into()).ok().map(|s| s.trim().to_string())
-  });
-  EdnError::ValueError {
-    message: message.into(),
-    path,
-    node_preview,
+  /// Create a value error with path and node preview.
+  /// The node is structurally folded along `path` before formatting.
+  pub fn value(message: impl Into<String>, path: Vec<usize>, node: Option<&Cirru>) -> Self {
+    let node_preview = node.and_then(|n| {
+      let folded = cirru_parser::focus_cirru_preview(n, &path);
+      cirru_parser::format(std::slice::from_ref(&folded), false.into())
+        .ok()
+        .map(|s| s.trim().to_string())
+    });
+    EdnError::ValueError {
+      message: message.into(),
+      path,
+      node_preview,
+    }
   }
-}
 
   /// Create a deserialization error with position
   pub fn deserialization(message: impl Into<String>, position: Option<Vec<u8>>) -> Self {

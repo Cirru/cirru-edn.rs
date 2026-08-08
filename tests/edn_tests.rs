@@ -1,9 +1,10 @@
 extern crate cirru_edn;
 
-use cirru_edn::EdnRecordView;
+use cirru_edn::EdnStructView;
 use cirru_edn::{Edn, EdnListView, EdnTag};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 #[test]
 fn edn_parsing() {
@@ -20,28 +21,28 @@ fn edn_parsing() {
   assert_eq!(Ok(Edn::Number(2.0)), cirru_edn::parse("do 2"));
   assert_eq!(Ok(Edn::Number(-2.2)), cirru_edn::parse("do -2.2"));
 
-  assert_eq!(Ok(Edn::tuple(Edn::tag("a"), vec![])), cirru_edn::parse(":: :a"));
+  assert_eq!(Ok(Edn::enum_value("a", vec![])), cirru_edn::parse(":: :a"));
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0)])),
+    Ok(Edn::enum_value("a", vec![Edn::Number(1.0)])),
     cirru_edn::parse(":: :a 1")
   );
 
   assert_eq!(
-    Ok(Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0), Edn::Number(2.0)])),
+    Ok(Edn::enum_value("a", vec![Edn::Number(1.0), Edn::Number(2.0)])),
     cirru_edn::parse(":: :a 1 2")
   );
 
   assert_eq!(
-    Ok(Edn::tuple(
-      Edn::tag("a"),
+    Ok(Edn::enum_value(
+      "a",
       vec![Edn::Number(1.0), Edn::Number(2.0), Edn::str("b")]
     )),
     cirru_edn::parse(":: :a 1 2 |b")
   );
 
   assert_eq!(
-    Ok(Edn::enum_tuple(Edn::tag("e"), Edn::tag("a"), vec![Edn::Number(1.0)])),
+    Ok(Edn::typed_enum("e", "a", vec![Edn::Number(1.0)])),
     cirru_edn::parse("%:: :e :a 1")
   );
 
@@ -101,11 +102,8 @@ fn edn_formatting() -> Result<(), String> {
   assert_eq!(cirru_edn::format(&Edn::str("a"), true)?, "\ndo |a\n");
 
   assert_eq!(
-    cirru_edn::format(
-      &Edn::enum_tuple(Edn::tag("e"), Edn::tag("a"), vec![Edn::Number(1.0)]),
-      true
-    )?,
-    "\n%:: :e :a 1\n"
+    cirru_edn::format(&Edn::typed_enum("e", "a", vec![Edn::Number(1.0)]), true)?,
+    "\n%:: 'e 'a 1\n"
   );
 
   assert_eq!(cirru_edn::format(&Edn::str("a b"), true)?, "\ndo \"|a b\"\n");
@@ -125,21 +123,18 @@ fn edn_formatting() -> Result<(), String> {
   );
 
   assert_eq!(
-    cirru_edn::format(&Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0)]), true)?,
-    "\n:: :a 1\n"
+    cirru_edn::format(&Edn::enum_value("a", vec![Edn::Number(1.0)]), true)?,
+    "\n:: 'a 1\n"
   );
 
-  assert_eq!(
-    cirru_edn::format(&Edn::tuple(Edn::tag("a"), vec![]), true)?,
-    "\n:: :a\n"
-  );
+  assert_eq!(cirru_edn::format(&Edn::enum_value("a", vec![]), true)?, "\n:: 'a\n");
 
   assert_eq!(
     cirru_edn::format(
-      &Edn::tuple(Edn::tag("a"), vec![Edn::Number(1.0), Edn::tag("c"), Edn::Nil]),
+      &Edn::enum_value("a", vec![Edn::Number(1.0), Edn::tag("c"), Edn::Nil]),
       true
     )?,
-    "\n:: :a 1 :c nil\n"
+    "\n:: 'a 1 :c nil\n"
   );
 
   Ok(())
@@ -224,8 +219,8 @@ fn demo_parsing() -> Result<(), String> {
 
   assert_eq!(
     cirru_edn::parse(RECORD_DEMO),
-    Ok(Edn::Record(EdnRecordView {
-      tag: EdnTag::new("Demo"),
+    Ok(Edn::Struct(EdnStructView {
+      name: Arc::from("Demo"),
       pairs: vec![
         (EdnTag::new("a"), Edn::Number(1.0),),
         (EdnTag::new("b"), Edn::Number(2.0)),
@@ -246,8 +241,8 @@ fn demo_parsing() -> Result<(), String> {
 
   assert_eq!(
     cirru_edn::format(
-      &Edn::Record(EdnRecordView {
-        tag: EdnTag::new("Demo"),
+      &Edn::Struct(EdnStructView {
+        name: Arc::from("Demo"),
         pairs: vec![
           (EdnTag::new("a"), Edn::Number(1.0),),
           (EdnTag::new("b"), Edn::Number(2.0)),
@@ -259,7 +254,7 @@ fn demo_parsing() -> Result<(), String> {
       }),
       false
     ),
-    Ok(String::from(RECORD_DEMO))
+    Ok(String::from("\n%{} 'Demo (:a 1)\n  :b 2\n  :c $ [] 1 2 3\n"))
   );
 
   Ok(())
@@ -380,8 +375,8 @@ fn test_string_order() -> Result<(), String> {
 
 #[test]
 fn test_format_record() -> Result<(), String> {
-  let record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("Demo"),
+  let record = Edn::Struct(EdnStructView {
+    name: Arc::from("Demo"),
     pairs: vec![
       (EdnTag::new("a"), Edn::Number(1.0)),
       (
@@ -394,11 +389,11 @@ fn test_format_record() -> Result<(), String> {
   });
   assert_eq!(
     cirru_edn::format(&record, true)?,
-    "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
+    "\n%{} 'Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
   );
 
-  let record_unstable_order = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("Demo"),
+  let record_unstable_order = Edn::Struct(EdnStructView {
+    name: Arc::from("Demo"),
     pairs: vec![
       (
         EdnTag::new("c"),
@@ -412,7 +407,7 @@ fn test_format_record() -> Result<(), String> {
 
   assert_eq!(
     cirru_edn::format(&record_unstable_order, true)?,
-    "\n%{} :Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
+    "\n%{} 'Demo (:a 1) (:b 2) (:d 3)\n  :c $ [] 1 2 3\n"
   );
 
   Ok(())

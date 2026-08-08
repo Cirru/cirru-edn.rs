@@ -1,45 +1,45 @@
-// Record
+// Struct
 
-/// Record interface for Edn::Record
+/// Struct interface for Edn::Struct.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EdnRecordView {
-  pub tag: EdnTag,
+pub struct EdnStructView {
+  pub name: Arc<str>,
   pub pairs: Vec<(EdnTag, Edn)>,
 }
 
-impl PartialOrd for EdnRecordView {
+impl PartialOrd for EdnStructView {
   fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
     Some(std::cmp::Ord::cmp(self, other))
   }
 }
 
-impl Ord for EdnRecordView {
+impl Ord for EdnStructView {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-    self.tag.cmp(&other.tag).then_with(|| self.pairs.cmp(&other.pairs))
+    self.name.cmp(&other.name).then_with(|| self.pairs.cmp(&other.pairs))
   }
 }
 
-impl TryFrom<Edn> for EdnRecordView {
+impl TryFrom<Edn> for EdnStructView {
   type Error = String;
 
   fn try_from(data: Edn) -> Result<Self, Self::Error> {
     match data {
-      Edn::Record(EdnRecordView { tag: t, pairs }) => {
+      Edn::Struct(EdnStructView { name, pairs }) => {
         let mut buf = vec![];
         for pair in pairs {
           buf.push((pair.0, pair.1));
         }
-        Ok(EdnRecordView { tag: t, pairs: buf })
+        Ok(EdnStructView { name, pairs: buf })
       }
-      a => Err(format!("data is not record: {a}")),
+      value => Err(format!("data is not struct: {value}")),
     }
   }
 }
 
-impl From<EdnRecordView> for Edn {
-  fn from(x: EdnRecordView) -> Edn {
-    Edn::Record(EdnRecordView {
-      tag: x.tag,
+impl From<EdnStructView> for Edn {
+  fn from(x: EdnStructView) -> Edn {
+    Edn::Struct(EdnStructView {
+      name: x.name,
       pairs: x.pairs,
     })
   }
@@ -48,7 +48,8 @@ impl From<EdnRecordView> for Edn {
 use std::ops::Index;
 
 use crate::{Edn, EdnTag};
-impl Index<&str> for EdnRecordView {
+use std::sync::Arc;
+impl Index<&str> for EdnStructView {
   type Output = Edn;
 
   fn index(&self, index: &str) -> &Self::Output {
@@ -61,9 +62,12 @@ impl Index<&str> for EdnRecordView {
   }
 }
 
-impl EdnRecordView {
-  pub fn new(tag: EdnTag) -> EdnRecordView {
-    EdnRecordView { tag, pairs: vec![] }
+impl EdnStructView {
+  pub fn new(name: impl Into<Arc<str>>) -> EdnStructView {
+    EdnStructView {
+      name: name.into(),
+      pairs: vec![],
+    }
   }
 
   pub fn has_key(&self, key: &str) -> bool {
@@ -75,7 +79,7 @@ impl EdnRecordView {
     false
   }
 
-  /// quick hand for building record
+  /// Quick helper for building a struct.
   pub fn insert(&mut self, k: impl Into<EdnTag>, v: Edn) {
     self.pairs.push((k.into(), v))
   }

@@ -4,11 +4,11 @@
 //!
 //! This crate provides a data format similar to EDN but using Cirru's syntax instead of
 //! traditional s-expressions. It supports rich data types including primitives, collections,
-//! and special constructs like records and tuples.
+//! and special constructs like structs and enums.
 //!
 //! ## Features
 //!
-//! - **Rich data types**: nil, boolean, number, string, symbol, tag, list, set, map, record, tuple, buffer, atom
+//! - **Rich data types**: nil, boolean, number, string, symbol, tag, list, set, map, struct, enum, buffer, atom
 //! - **Serde integration**: Seamless serialization/deserialization with Rust structs
 //! - **Efficient string handling**: Uses `Arc<str>` for string deduplication
 //! - **Runtime references**: Support for arbitrary Rust data via `AnyRef`
@@ -113,9 +113,7 @@ use std::vec;
 
 use cirru_parser::Cirru;
 
-pub use edn::{
-  DynEq, Edn, EdnAnyRef, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTupleView, is_simple_char,
-};
+pub use edn::{DynEq, Edn, EdnAnyRef, EdnEnumView, EdnListView, EdnMapView, EdnSetView, EdnStructView, is_simple_char};
 pub use error::{EdnError, EdnResult, Position};
 pub use tag::EdnTag;
 
@@ -132,8 +130,6 @@ pub type EdnResultString<T> = Result<T, String>;
 pub type EdnList = EdnListView;
 pub type EdnMap = EdnMapView;
 pub type EdnSet = EdnSetView;
-pub type EdnRecord = EdnRecordView;
-pub type EdnTuple = EdnTupleView;
 
 // Common constants for convenience
 impl Edn {
@@ -285,7 +281,7 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
               ret.ok_or_else(|| EdnError::structure("missing edn do value", path.clone(), Some(node)))
             }
             "::" => {
-              let mut tag: Option<Edn> = None;
+              let mut variant: Option<Arc<str>> = None;
               let mut extra: Vec<Edn> = vec![];
               for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
@@ -293,17 +289,17 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                 }
                 let mut child_path = path.clone();
                 child_path.push(i);
-                if tag.is_some() {
+                if variant.is_some() {
                   extra.push(extract_cirru_edn_with_path(x, child_path)?);
                   continue;
                 } else {
-                  tag = Some(extract_cirru_edn_with_path(x, child_path)?);
+                  variant = Some(extract_symbol_name(x, child_path)?);
                 }
               }
-              if let Some(x0) = tag {
-                Ok(Edn::Tuple(EdnTupleView {
-                  tag: Arc::new(x0),
-                  enum_tag: None,
+              if let Some(variant) = variant {
+                Ok(Edn::Enum(EdnEnumView {
+                  variant,
+                  type_name: None,
                   extra,
                 }))
               } else {
@@ -315,8 +311,8 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
               }
             }
             "%::" => {
-              let mut enum_tag: Option<Edn> = None;
-              let mut tag: Option<Edn> = None;
+              let mut type_name: Option<Arc<str>> = None;
+              let mut variant: Option<Arc<str>> = None;
               let mut extra: Vec<Edn> = vec![];
               for (i, x) in xs.iter().enumerate().skip(1) {
                 if is_comment(x) {
@@ -324,23 +320,23 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                 }
                 let mut child_path = path.clone();
                 child_path.push(i);
-                if enum_tag.is_none() {
-                  enum_tag = Some(extract_cirru_edn_with_path(x, child_path)?);
-                } else if tag.is_none() {
-                  tag = Some(extract_cirru_edn_with_path(x, child_path)?);
+                if type_name.is_none() {
+                  type_name = Some(extract_symbol_name(x, child_path)?);
+                } else if variant.is_none() {
+                  variant = Some(extract_symbol_name(x, child_path)?);
                 } else {
                   extra.push(extract_cirru_edn_with_path(x, child_path)?);
                 }
               }
-              if let (Some(e0), Some(x0)) = (enum_tag, tag) {
-                Ok(Edn::Tuple(EdnTupleView {
-                  tag: Arc::new(x0),
-                  enum_tag: Some(Arc::new(e0)),
+              if let (Some(type_name), Some(variant)) = (type_name, variant) {
+                Ok(Edn::Enum(EdnEnumView {
+                  variant,
+                  type_name: Some(type_name),
                   extra,
                 }))
               } else {
                 Err(EdnError::structure(
-                  "missing edn %:: enum_tag or tag value",
+                  "missing edn %:: type or variant symbol",
                   path.clone(),
                   Some(node),
                 ))
@@ -411,7 +407,11 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                           ));
                         }
                         (Ok(k), Err(e)) => {
-                          return Err(EdnError::wrap_structure(format!("invalid map entry for `{k}`"), v_path, &e));
+                          return Err(EdnError::wrap_structure(
+                            format!("invalid map entry for `{k}`"),
+                            v_path,
+                            &e,
+                          ));
                         }
                       }
                     }
@@ -423,12 +423,19 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
             "%{}" => {
               if xs.len() >= 3 {
                 let name = match &xs[1] {
-                  Cirru::Leaf(s) => EdnTag::new(s.strip_prefix(':').unwrap_or(s)),
+                  Cirru::Leaf(s) => symbol_name_from_leaf(s).map(Arc::from).ok_or_else(|| {
+                    EdnError::structure_focused(
+                      "expected struct name symbol".to_string(),
+                      path.clone(),
+                      &[1],
+                      Some(node),
+                    )
+                  })?,
                   Cirru::List(_) => {
                     let mut name_path = path.clone();
                     name_path.push(1);
                     return Err(EdnError::structure_focused(
-                      "expected record name in string, got a list".to_string(),
+                      "expected struct name symbol, got a list".to_string(),
                       name_path,
                       &[1],
                       Some(node),
@@ -461,7 +468,11 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                             entries.push((EdnTag::new(s.strip_prefix(':').unwrap_or(s)), v));
                           }
                           (Cirru::Leaf(s), Err(e)) => {
-                            return Err(EdnError::wrap_structure(format!("invalid record value for `{s}`"), v_path, &e));
+                            return Err(EdnError::wrap_structure(
+                              format!("invalid record value for `{s}`"),
+                              v_path,
+                              &e,
+                            ));
                           }
                           (Cirru::List(_), _) => {
                             let mut k_path = child_path.clone();
@@ -488,8 +499,8 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                 if entries.is_empty() {
                   return Err(EdnError::structure("empty record is invalid", path.clone(), Some(node)));
                 }
-                Ok(Edn::Record(EdnRecordView {
-                  tag: name,
+                Ok(Edn::Struct(EdnStructView {
+                  name: name,
                   pairs: entries,
                 }))
               } else {
@@ -583,6 +594,22 @@ fn is_comment(node: &Cirru) -> bool {
   }
 }
 
+fn symbol_name_from_leaf(raw: &str) -> Option<&str> {
+  raw
+    .strip_prefix('\'')
+    .or_else(|| raw.strip_prefix(':'))
+    .filter(|name| !name.is_empty())
+}
+
+fn extract_symbol_name(node: &Cirru, path: Vec<usize>) -> EdnResult<Arc<str>> {
+  match node {
+    Cirru::Leaf(raw) => symbol_name_from_leaf(raw)
+      .map(Arc::from)
+      .ok_or_else(|| EdnError::structure("expected symbol name or legacy tag", path, Some(node))),
+    Cirru::List(_) => Err(EdnError::structure("expected symbol name, got list", path, Some(node))),
+  }
+}
+
 fn assemble_cirru_node(data: &Edn) -> Cirru {
   match data {
     Edn::Nil => "nil".into(),
@@ -628,13 +655,10 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
       }
       Cirru::List(ys)
     }
-    Edn::Record(EdnRecordView {
-      tag: name,
-      pairs: entries,
-    }) => {
+    Edn::Struct(EdnStructView { name, pairs: entries }) => {
       let mut ys: Vec<Cirru> = Vec::with_capacity(entries.len() + 2);
       ys.push("%{}".into());
-      ys.push(format!(":{name}").as_str().into());
+      ys.push(format!("'{name}").as_str().into());
       let mut ordered_entries = entries.to_owned();
       ordered_entries.sort_by(|(a1, a2), (b1, b2)| match (a2.is_literal(), b2.is_literal()) {
         (true, false) => Less,
@@ -651,11 +675,19 @@ fn assemble_cirru_node(data: &Edn) -> Cirru {
 
       Cirru::List(ys)
     }
-    Edn::Tuple(EdnTupleView { tag, enum_tag, extra }) => {
-      let mut ys: Vec<Cirru> = if let Some(et) = enum_tag {
-        vec!["%::".into(), assemble_cirru_node(et), assemble_cirru_node(tag)]
+    Edn::Enum(EdnEnumView {
+      variant,
+      type_name,
+      extra,
+    }) => {
+      let mut ys: Vec<Cirru> = if let Some(et) = type_name {
+        vec![
+          "%::".into(),
+          format!("'{et}").as_str().into(),
+          format!("'{variant}").as_str().into(),
+        ]
       } else {
-        vec!["::".into(), assemble_cirru_node(tag)]
+        vec!["::".into(), format!("'{variant}").as_str().into()]
       };
       for item in extra {
         ys.push(assemble_cirru_node(item))

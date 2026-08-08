@@ -7,10 +7,11 @@
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
 
-use cirru_edn::{Edn, EdnRecordView, EdnTag, from_edn, to_edn};
+use cirru_edn::{Edn, EdnStructView, EdnTag, from_edn, to_edn};
 use cirru_parser::Cirru;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Person {
@@ -239,8 +240,8 @@ fn demo_record_deserialization() -> Result<(), String> {
   println!("8. Cirru EDN Record deserialization demo...");
 
   // Create a record manually - this represents what might come from EDN text parsing
-  let person_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("PersonRecord"), // This name will be ignored during deserialization
+  let person_record = Edn::Struct(EdnStructView {
+    name: Arc::from("PersonRecord"), // This name will be ignored during deserialization
     pairs: vec![
       (EdnTag::new("name"), "Frank".into()),
       (EdnTag::new("age"), Edn::Number(42.0)),
@@ -273,8 +274,8 @@ fn demo_record_deserialization() -> Result<(), String> {
   println!("{}\n", frank_edn);
 
   // Also demonstrate special fields with records
-  let special_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("SpecialPersonRecord"),
+  let special_record = Edn::Struct(EdnStructView {
+    name: Arc::from("SpecialPersonRecord"),
     pairs: vec![
       (EdnTag::new("name"), "Grace".into()),
       (EdnTag::new("age"), Edn::Number(29.0)),

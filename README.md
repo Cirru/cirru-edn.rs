@@ -122,16 +122,17 @@ match from_edn::<Person>(incomplete_edn) {
 
 See `examples/serde_demo.rs` for more complex nested structures and usage patterns.
 
-#### Record Deserialization
+#### Struct Deserialization
 
-Cirru EDN supports Record types with named tags, which can be deserialized to Rust structs. During deserialization, the record name is ignored since Rust structs don't expose their type names at runtime:
+Cirru EDN supports Struct values with symbol names, which can be deserialized to Rust structs. During deserialization, the struct name is ignored since Rust structs don't expose their type names at runtime:
 
 ```rust
-use cirru_edn::{Edn, EdnRecordView, EdnTag, from_edn};
+use cirru_edn::{Edn, EdnStructView, EdnTag, from_edn};
+use std::sync::Arc;
 
-// Create a Record with a named type
-let person_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("PersonRecord"),  // This name will be ignored during deserialization
+// Create a Struct with a symbol name
+let person_struct = Edn::Struct(EdnStructView {
+    name: Arc::from("Person"),  // This name will be ignored during deserialization
     pairs: vec![
         (EdnTag::new("name"), "Frank".into()),
         (EdnTag::new("age"), Edn::Number(42.0)),
@@ -139,23 +140,23 @@ let person_record = Edn::Record(EdnRecordView {
     ],
 });
 
-// Deserialize Record to struct (ignoring the record name)
-let person: Person = from_edn(person_record).unwrap();
+// Deserialize Struct to Rust struct (ignoring the struct name)
+let person: Person = from_edn(person_struct).unwrap();
 println!("{:?}", person);
 
-// Note: When serializing structs back to EDN, they become Maps, not Records
+// Note: When serializing structs back to EDN, they become Maps, not EDN Struct values
 // since Rust doesn't provide struct names at runtime
 let edn_back = to_edn(&person).unwrap();
-// This will be a Map, not a Record
+// This will be a Map, not an EDN Struct
 ```
 
-This feature allows interoperability between EDN data containing Records and Rust structs, with the semantic understanding that record names are metadata that may be lost during round-trip conversion.
+This feature allows interoperability between EDN data containing Struct values and Rust structs, with the semantic understanding that struct names are metadata that may be lost during round-trip conversion.
 
 #### Limitations
 
 - Some special Edn types (like `Quote`, `AnyRef`) cannot be serialized
 - Maps with complex keys will use their string representation when serializing structs
-- Record names are ignored during deserialization and structs serialize to Maps, not Records
+- Struct names are ignored during deserialization and Rust structs serialize to Maps, not EDN Struct values
 
 ### EDN Format
 
@@ -233,30 +234,30 @@ nested list:
 #{} ([] 3) 1
 ```
 
-tuple, or tagged union, actually very limitted due to Calcit semantics:
+enum, or tagged union, is limited by Calcit semantics:
 
 ```cirru
-:: :a
+:: 'a
 
-:: :b 1
+:: 'b 1
 ```
 
-extra values can be added to tuple since `0.3`:
+extra values can be added to an enum:
 
 ```cirru
-:: :a 1 |extra :l
+:: 'a 1 |extra :l
 ```
 
-newly added `%::` for representing enums with a type tag:
+`%::` represents enums with a symbol type name:
 
 ```cirru
-%:: :e :a 1 |extra :l
+%:: 'e 'a 1 |extra :l
 ```
 
-a record, notice that now it's all using tags:
+an EDN struct uses a symbol name and tag field keys:
 
 ```cirru
-%{} :Demo (:a 1)
+%{} 'Demo (:a 1)
   :b 2
   :c $ [] 1 2 3
 ```
