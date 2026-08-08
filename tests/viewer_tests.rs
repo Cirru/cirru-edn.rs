@@ -1,18 +1,19 @@
 extern crate cirru_edn;
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
-use cirru_edn::{Edn, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTag};
+use cirru_edn::{Edn, EdnListView, EdnMapView, EdnSetView, EdnStructView, EdnTag};
 
 #[test]
 fn building_record() {
-  let mut record = EdnRecordView::new(EdnTag::new("a"));
+  let mut record = EdnStructView::new("a");
   record.insert("b", Edn::Number(1.0));
   record.insert("c", Edn::Number(2.0));
 
   assert_eq!(
-    Edn::Record(EdnRecordView {
-      tag: EdnTag::new("a"),
+    Edn::Struct(EdnStructView {
+      name: Arc::from("a"),
       pairs: vec![
         (EdnTag::new("b"), Edn::Number(1.0)),
         (EdnTag::new("c"), Edn::Number(2.0)),

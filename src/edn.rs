@@ -21,11 +21,11 @@ use std::{
 
 use cirru_parser::Cirru;
 
-pub use self::tuple::EdnTupleView;
+pub use self::tuple::EdnEnumView;
 pub use any_ref::{DynEq, EdnAnyRef};
 pub use list::EdnListView;
 pub use map::EdnMapView;
-pub use record::EdnRecordView;
+pub use record::EdnStructView;
 pub use set::EdnSetView;
 
 use crate::tag::EdnTag;
@@ -40,8 +40,8 @@ use crate::tag::EdnTag;
 ///
 /// - **Primitives**: `Nil`, `Bool`, `Number`, `Str`
 /// - **Named values**: `Symbol`, `Tag` (similar to keywords in other EDN implementations)
-/// - **Collections**: `List`, `Set`, `Map`, `Record`
-/// - **Special constructs**: `Quote`, `Tuple`, `Buffer`, `Atom`
+/// - **Collections**: `List`, `Set`, `Map`, `Struct`
+/// - **Special constructs**: `Quote`, `Enum`, `Buffer`, `Atom`
 /// - **Runtime references**: `AnyRef` (for holding arbitrary Rust data)
 ///
 /// # Examples
@@ -72,9 +72,9 @@ use crate::tag::EdnTag;
 ///     (Edn::tag("age"), Edn::Number(30.0)),
 /// ]);
 ///
-/// // Create a tuple (tagged union)
-/// let tuple_val = Edn::tuple(
-///     Edn::tag("user"),
+/// // Create an enum value
+/// let enum_value = Edn::enum_value(
+///     "user",
 ///     vec![Edn::str("john"), Edn::Number(25.0)]
 /// );
 /// ```
@@ -97,18 +97,18 @@ pub enum Edn {
   Str(Arc<str>), // name collision
   /// Quoted Cirru code that is not evaluated. Used to represent code as data.
   Quote(Cirru),
-  /// Tuple - a tagged union type with a tag and optional extra values.
+  /// Enum - a tagged union type with a variant and optional extra values.
   /// Useful for discriminated unions and algebraic data types.
-  Tuple(EdnTupleView),
+  Enum(EdnEnumView),
   /// Ordered sequence of values. Rendered as `([] item1 item2 ...)`.
   List(EdnListView),
   /// Unordered collection of unique values. Rendered as `(#{} item1 item2 ...)`.
   Set(EdnSetView),
   /// Key-value mapping. Rendered as `({} (key1 value1) (key2 value2) ...)`.
   Map(EdnMapView),
-  /// Record - a structured data type with a type name and named fields.
+  /// Struct - a structured data type with a type name and named fields.
   /// Similar to structs in other languages.
-  Record(EdnRecordView),
+  Struct(EdnStructView),
   /// Binary data buffer. Rendered as `(buf 01 ff a2 ...)` with hex values.
   Buffer(Vec<u8>),
   /// Reference to arbitrary Rust data that cannot be serialized to EDN.
@@ -143,17 +143,21 @@ impl fmt::Display for Edn {
         }
       }
       Self::Quote(v) => f.write_fmt(format_args!("(quote {v})")),
-      Self::Tuple(EdnTupleView { tag, enum_tag, extra }) => {
+      Self::Enum(EdnEnumView {
+        variant,
+        type_name,
+        extra,
+      }) => {
         let mut extra_str = String::new();
         for item in extra {
           extra_str.push(' ');
           extra_str.push_str(&item.to_string());
         }
 
-        if let Some(et) = enum_tag {
-          f.write_fmt(format_args!("(%:: {et} {tag}{extra_str})"))
+        if let Some(et) = type_name {
+          f.write_fmt(format_args!("(%:: '{et} '{variant}{extra_str})"))
         } else {
-          f.write_fmt(format_args!("(:: {tag}{extra_str})"))
+          f.write_fmt(format_args!("(:: '{variant}{extra_str})"))
         }
       }
       Self::List(EdnListView(xs)) => {
@@ -177,11 +181,8 @@ impl fmt::Display for Edn {
         }
         f.write_str(")")
       }
-      Self::Record(EdnRecordView {
-        tag: name,
-        pairs: entries,
-      }) => {
-        f.write_fmt(format_args!("(%{{}} :{name}"))?;
+      Self::Struct(EdnStructView { name, pairs: entries }) => {
+        f.write_fmt(format_args!("(%{{}} '{name}"))?;
 
         for entry in entries {
           f.write_fmt(format_args!(" ({} {})", Edn::Tag(entry.0.to_owned()), entry.1))?;
@@ -248,14 +249,14 @@ impl Hash for Edn {
         "quote:".hash(_state);
         v.hash(_state);
       }
-      Self::Tuple(EdnTupleView {
-        tag: pair,
-        enum_tag,
+      Self::Enum(EdnEnumView {
+        variant: pair,
+        type_name,
         extra,
       }) => {
         "tuple".hash(_state);
         pair.hash(_state);
-        enum_tag.hash(_state);
+        type_name.hash(_state);
         extra.hash(_state);
       }
       Self::List(v) => {
@@ -276,10 +277,7 @@ impl Hash for Edn {
           x.hash(_state)
         }
       }
-      Self::Record(EdnRecordView {
-        tag: name,
-        pairs: entries,
-      }) => {
+      Self::Struct(EdnStructView { name, pairs: entries }) => {
         "record:".hash(_state);
         name.hash(_state);
         entries.hash(_state);
@@ -341,9 +339,9 @@ impl Ord for Edn {
       (Self::Quote(_), _) => Less,
       (_, Self::Quote(_)) => Greater,
 
-      (Self::Tuple(a), Self::Tuple(b)) => a.cmp(b),
-      (Self::Tuple(..), _) => Less,
-      (_, Self::Tuple(..)) => Greater,
+      (Self::Enum(a), Self::Enum(b)) => a.cmp(b),
+      (Self::Enum(..), _) => Less,
+      (_, Self::Enum(..)) => Greater,
 
       (Self::List(a), Self::List(b)) => a.cmp(b),
       (Self::List(_), _) => Less,
@@ -370,18 +368,18 @@ impl Ord for Edn {
       (_, Self::Map(_)) => Greater,
 
       (
-        Self::Record(EdnRecordView {
-          tag: name1,
+        Self::Struct(EdnStructView {
+          name: name1,
           pairs: entries1,
         }),
-        Self::Record(EdnRecordView {
-          tag: name2,
+        Self::Struct(EdnStructView {
+          name: name2,
           pairs: entries2,
         }),
       ) => name1.cmp(name2).then_with(|| entries1.cmp(entries2)),
 
-      (Self::Record(..), _) => Less,
-      (_, Self::Record(..)) => Greater,
+      (Self::Struct(..), _) => Less,
+      (_, Self::Struct(..)) => Greater,
 
       (Self::Atom(a), Self::Atom(b)) => a.cmp(b),
       (Self::Atom(_), _) => Less,
@@ -416,12 +414,12 @@ impl PartialEq for Edn {
       (Self::Tag(a), Self::Tag(b)) => a == b,
       (Self::Str(a), Self::Str(b)) => a == b,
       (Self::Quote(a), Self::Quote(b)) => a == b,
-      (Self::Tuple(a), Self::Tuple(b)) => a == b,
+      (Self::Enum(a), Self::Enum(b)) => a == b,
       (Self::List(a), Self::List(b)) => a == b,
       (Self::Buffer(a), Self::Buffer(b)) => a == b,
       (Self::Set(a), Self::Set(b)) => a == b,
       (Self::Map(a), Self::Map(b)) => a == b,
-      (Self::Record(a), Self::Record(b)) => a == b,
+      (Self::Struct(a), Self::Struct(b)) => a == b,
       (Self::AnyRef(a), Self::AnyRef(b)) => a == b,
       (Self::Atom(a), Self::Atom(b)) => a == b,
       (_, _) => false,
@@ -443,19 +441,19 @@ impl Edn {
   pub fn sym<T: Into<Arc<str>>>(s: T) -> Self {
     Edn::Symbol(s.into())
   }
-  /// create new tuple
-  pub fn tuple(tag: Self, extra: Vec<Self>) -> Self {
-    Edn::Tuple(EdnTupleView {
-      tag: Arc::new(tag),
-      enum_tag: None,
+  /// Create an enum value without a nominal enum type.
+  pub fn enum_value(variant: impl Into<Arc<str>>, extra: Vec<Self>) -> Self {
+    Edn::Enum(EdnEnumView {
+      variant: variant.into(),
+      type_name: None,
       extra,
     })
   }
-  /// create new enum tuple
-  pub fn enum_tuple(enum_tag: Self, tag: Self, extra: Vec<Self>) -> Self {
-    Edn::Tuple(EdnTupleView {
-      tag: Arc::new(tag),
-      enum_tag: Some(Arc::new(enum_tag)),
+  /// Create a nominal enum value from a type and variant symbol.
+  pub fn typed_enum(type_name: impl Into<Arc<str>>, variant: impl Into<Arc<str>>, extra: Vec<Self>) -> Self {
+    Edn::Enum(EdnEnumView {
+      variant: variant.into(),
+      type_name: Some(type_name.into()),
       extra,
     })
   }
@@ -475,10 +473,10 @@ impl Edn {
     Self::Map(EdnMapView(HashMap::from_iter(pairs)))
   }
 
-  /// Create a record from a tag and field pairs
-  pub fn record_from_pairs(tag: EdnTag, pairs: &[(EdnTag, Edn)]) -> Self {
-    Self::Record(EdnRecordView {
-      tag,
+  /// Create a struct from a symbol name and field pairs.
+  pub fn struct_from_pairs(name: impl Into<Arc<str>>, pairs: &[(EdnTag, Edn)]) -> Self {
+    Self::Struct(EdnStructView {
+      name: name.into(),
       pairs: pairs.to_vec(),
     })
   }
@@ -576,26 +574,30 @@ impl Edn {
     }
   }
 
-  /// get Record variant in struct
-  pub fn view_record(&self) -> Result<EdnRecordView, String> {
+  /// Get the struct view.
+  pub fn view_struct(&self) -> Result<EdnStructView, String> {
     match self {
-      Edn::Record(EdnRecordView { tag, pairs }) => Ok(EdnRecordView {
-        tag: tag.to_owned(),
+      Edn::Struct(EdnStructView { name, pairs }) => Ok(EdnStructView {
+        name: name.to_owned(),
         pairs: pairs.to_owned(),
       }),
-      a => Err(format!("failed to convert to record: {a}")),
+      value => Err(format!("failed to convert to struct: {value}")),
     }
   }
 
-  /// get Tuple variant in struct
-  pub fn view_tuple(&self) -> Result<EdnTupleView, String> {
+  /// Get the enum view.
+  pub fn view_enum(&self) -> Result<EdnEnumView, String> {
     match self {
-      Edn::Tuple(EdnTupleView { tag, enum_tag, extra }) => Ok(EdnTupleView {
-        tag: tag.to_owned(),
-        enum_tag: enum_tag.to_owned(),
+      Edn::Enum(EdnEnumView {
+        variant,
+        type_name,
+        extra,
+      }) => Ok(EdnEnumView {
+        variant: variant.to_owned(),
+        type_name: type_name.to_owned(),
         extra: extra.to_owned(),
       }),
-      a => Err(format!("failed to convert to tuple: {a}")),
+      value => Err(format!("failed to convert to enum: {value}")),
     }
   }
 
@@ -646,14 +648,14 @@ impl Edn {
     matches!(self, Edn::Map(_))
   }
 
-  /// Check if the value is a record
-  pub fn is_record(&self) -> bool {
-    matches!(self, Edn::Record(_))
+  /// Check if the value is a struct.
+  pub fn is_struct(&self) -> bool {
+    matches!(self, Edn::Struct(_))
   }
 
-  /// Check if the value is a tuple
-  pub fn is_tuple(&self) -> bool {
-    matches!(self, Edn::Tuple(_))
+  /// Check if the value is an enum.
+  pub fn is_enum(&self) -> bool {
+    matches!(self, Edn::Enum(_))
   }
 
   /// Check if the value is a buffer
@@ -681,11 +683,11 @@ impl Edn {
       Edn::Tag(_) => "tag",
       Edn::Str(_) => "string",
       Edn::Quote(_) => "quote",
-      Edn::Tuple(_) => "tuple",
+      Edn::Enum(_) => "enum",
       Edn::List(_) => "list",
       Edn::Set(_) => "set",
       Edn::Map(_) => "map",
-      Edn::Record(_) => "record",
+      Edn::Struct(_) => "struct",
       Edn::Buffer(_) => "buffer",
       Edn::AnyRef(_) => "any-ref",
       Edn::Atom(_) => "atom",
@@ -723,10 +725,10 @@ impl Edn {
     }
   }
 
-  /// Try to access record field by tag (returns None for non-records or missing fields)
-  pub fn get_record_field(&self, field: &EdnTag) -> Option<&Edn> {
+  /// Try to access a struct field by tag (returns None for non-structs or missing fields).
+  pub fn get_struct_field(&self, field: &EdnTag) -> Option<&Edn> {
     match self {
-      Edn::Record(record) => {
+      Edn::Struct(record) => {
         for (tag, value) in &record.pairs {
           if tag == field {
             return Some(value);
@@ -1192,21 +1194,21 @@ where
   }
 }
 
-impl From<(Arc<Edn>, Vec<Edn>)> for Edn {
-  fn from((tag, extra): (Arc<Edn>, Vec<Edn>)) -> Edn {
-    Edn::Tuple(EdnTupleView {
-      tag,
-      enum_tag: None,
+impl From<(Arc<str>, Vec<Edn>)> for Edn {
+  fn from((variant, extra): (Arc<str>, Vec<Edn>)) -> Edn {
+    Edn::Enum(EdnEnumView {
+      variant,
+      type_name: None,
       extra,
     })
   }
 }
 
-impl From<(Arc<Edn>, Arc<Edn>, Vec<Edn>)> for Edn {
-  fn from((enum_tag, tag, extra): (Arc<Edn>, Arc<Edn>, Vec<Edn>)) -> Edn {
-    Edn::Tuple(EdnTupleView {
-      tag,
-      enum_tag: Some(enum_tag),
+impl From<(Arc<str>, Arc<str>, Vec<Edn>)> for Edn {
+  fn from((type_name, variant, extra): (Arc<str>, Arc<str>, Vec<Edn>)) -> Edn {
+    Edn::Enum(EdnEnumView {
+      variant,
+      type_name: Some(type_name),
       extra,
     })
   }

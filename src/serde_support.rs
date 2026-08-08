@@ -60,7 +60,7 @@
 //! - `Tag` -> `{"__edn_tag": "value"}`
 //! - `Set` -> `{"__edn_set": [items]}`
 //! - `Buffer` -> `{"__edn_buffer": [bytes]}`
-//! - `Tuple` -> `{"__edn_tuple_tag": tag, "__edn_tuple_extra": [values], "__edn_tuple_enum": enum_tag}` (enum_tag is optional)
+//! - `Tuple` -> `{"__edn_tuple_tag": tag, "__edn_tuple_extra": [values], "__edn_tuple_enum": type_name}` (type_name is optional)
 
 #![allow(clippy::mutable_key_type)]
 #![allow(clippy::uninlined_format_args)]
@@ -77,8 +77,16 @@ use serde::{
   },
 };
 
-use crate::{Edn, EdnListView, EdnMapView, EdnRecordView, EdnSetView, EdnTag, EdnTupleView};
+use crate::{Edn, EdnEnumView, EdnListView, EdnMapView, EdnSetView, EdnStructView, EdnTag};
 use cirru_parser::Cirru;
+
+fn edn_symbol_name(value: &Edn) -> Option<Arc<str>> {
+  match value {
+    Edn::Symbol(name) | Edn::Str(name) => Some(name.clone()),
+    Edn::Tag(tag) => Some(tag.arc_str()),
+    _ => None,
+  }
+}
 
 impl Serialize for Edn {
   fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -105,14 +113,18 @@ impl Serialize for Edn {
         map.serialize_entry("__edn_quote", cirru)?;
         map.end()
       }
-      Edn::Tuple(EdnTupleView { tag, enum_tag, extra }) => {
-        let n = if enum_tag.is_some() { 3 } else { 2 };
+      Edn::Enum(EdnEnumView {
+        variant,
+        type_name,
+        extra,
+      }) => {
+        let n = if type_name.is_some() { 3 } else { 2 };
         let mut map = serializer.serialize_map(Some(n))?;
-        if let Some(et) = enum_tag {
-          map.serialize_entry("__edn_tuple_enum", et.as_ref())?;
+        if let Some(et) = type_name {
+          map.serialize_entry("__edn_enum_type", et.as_ref())?;
         }
-        map.serialize_entry("__edn_tuple_tag", tag.as_ref())?;
-        map.serialize_entry("__edn_tuple_extra", extra)?;
+        map.serialize_entry("__edn_enum_variant", variant.as_ref())?;
+        map.serialize_entry("__edn_enum_extra", extra)?;
         map.end()
       }
       Edn::List(EdnListView(list)) => {
@@ -142,9 +154,9 @@ impl Serialize for Edn {
         }
         ser_map.end()
       }
-      Edn::Record(EdnRecordView { tag, pairs }) => {
+      Edn::Struct(EdnStructView { name, pairs }) => {
         let mut map = serializer.serialize_map(Some(pairs.len() + 1))?;
-        map.serialize_entry("__edn_record_tag", &tag.to_string())?;
+        map.serialize_entry("__edn_struct_name", name.as_ref())?;
         for (key, value) in pairs {
           map.serialize_entry(&key.to_string(), value)?;
         }
@@ -277,16 +289,27 @@ impl<'de> Deserialize<'de> for Edn {
                   Err(de::Error::custom("Invalid tag data"))
                 }
               }
-              "__edn_tuple_tag" | "__edn_tuple_enum" | "__edn_tuple_extra" => {
-                if let (Some(tag), Some(extra)) = (
-                  special_data.get("__edn_tuple_tag"),
-                  special_data.get("__edn_tuple_extra"),
+              "__edn_enum_variant" | "__edn_enum_type" | "__edn_enum_extra" | "__edn_tuple_tag"
+              | "__edn_tuple_enum" | "__edn_tuple_extra" => {
+                if let (Some(variant), Some(extra)) = (
+                  special_data
+                    .get("__edn_enum_variant")
+                    .or_else(|| special_data.get("__edn_tuple_tag")),
+                  special_data
+                    .get("__edn_enum_extra")
+                    .or_else(|| special_data.get("__edn_tuple_extra")),
                 ) {
-                  let enum_tag = special_data.get("__edn_tuple_enum").map(|x| Arc::new(x.clone()));
+                  let type_name = special_data
+                    .get("__edn_enum_type")
+                    .or_else(|| special_data.get("__edn_tuple_enum"))
+                    .and_then(edn_symbol_name);
                   if let Edn::List(EdnListView(extra_vec)) = extra {
-                    Ok(Edn::Tuple(EdnTupleView {
-                      tag: Arc::new(tag.clone()),
-                      enum_tag,
+                    let Some(variant) = edn_symbol_name(variant) else {
+                      return Err(de::Error::custom("Invalid enum variant"));
+                    };
+                    Ok(Edn::Enum(EdnEnumView {
+                      variant,
+                      type_name,
                       extra: extra_vec.clone(),
                     }))
                   } else {
@@ -319,16 +342,19 @@ impl<'de> Deserialize<'de> for Edn {
                   Err(de::Error::custom("Invalid buffer data"))
                 }
               }
-              "__edn_record_tag" => {
-                if let Some(Edn::Str(tag_str)) = special_data.get("__edn_record_tag") {
-                  let tag = EdnTag::new(tag_str.as_ref());
+              "__edn_struct_name" | "__edn_record_tag" => {
+                if let Some(name) = special_data
+                  .get("__edn_struct_name")
+                  .or_else(|| special_data.get("__edn_record_tag"))
+                  .and_then(edn_symbol_name)
+                {
                   let mut pairs = Vec::new();
                   for (k, v) in &result_map {
                     if let Edn::Str(key_str) = k {
                       pairs.push((EdnTag::new(key_str.as_ref()), v.clone()));
                     }
                   }
-                  Ok(Edn::Record(EdnRecordView { tag, pairs }))
+                  Ok(Edn::Struct(EdnStructView { name, pairs }))
                 } else {
                   Err(de::Error::custom("Invalid record tag"))
                 }
@@ -1038,7 +1064,7 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
     match self.value {
       Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
       // Support Record deserialization to Map/Struct by ignoring the record name
-      Edn::Record(EdnRecordView { tag: _, pairs }) => {
+      Edn::Struct(EdnStructView { name: _, pairs }) => {
         // Convert Record pairs to Map format for struct deserialization
         let mut map = HashMap::new();
         for (key, value) in pairs {
@@ -1062,7 +1088,7 @@ impl<'de> Deserializer<'de> for EdnDeserializer {
     match self.value {
       Edn::Map(EdnMapView(map)) => visitor.visit_map(EdnMapDeserializer::new(map.into_iter())),
       // Support Record deserialization to struct by ignoring the record name
-      Edn::Record(EdnRecordView { tag: _, pairs }) => {
+      Edn::Struct(EdnStructView { name: _, pairs }) => {
         // Convert Record pairs to Map format for struct deserialization
         let mut map = HashMap::new();
         for (key, value) in pairs {

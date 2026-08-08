@@ -5,9 +5,10 @@
 
 extern crate cirru_edn;
 
-use cirru_edn::{Edn, EdnRecordView, EdnTag, from_edn, to_edn};
+use cirru_edn::{Edn, EdnStructView, EdnTag, from_edn, to_edn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct TestPerson {
@@ -29,8 +30,8 @@ struct TestPersonWithRename {
 #[test]
 fn test_record_to_struct_basic() {
   // Create a Record with person data
-  let person_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("PersonRecord"), // This tag will be ignored
+  let person_record = Edn::Struct(EdnStructView {
+    name: Arc::from("PersonRecord"), // This tag will be ignored
     pairs: vec![
       (EdnTag::new("name"), "Alice".into()),
       (EdnTag::new("age"), Edn::Number(30.0)),
@@ -49,8 +50,8 @@ fn test_record_to_struct_basic() {
 #[test]
 fn test_record_to_struct_with_nil() {
   // Create a Record with nil email
-  let person_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("PersonRecord"),
+  let person_record = Edn::Struct(EdnStructView {
+    name: Arc::from("PersonRecord"),
     pairs: vec![
       (EdnTag::new("name"), "Bob".into()),
       (EdnTag::new("age"), Edn::Number(25.0)),
@@ -68,8 +69,8 @@ fn test_record_to_struct_with_nil() {
 #[test]
 fn test_record_to_struct_with_renamed_fields() {
   // Create a Record with hyphenated field names
-  let person_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("SpecialPersonRecord"),
+  let person_record = Edn::Struct(EdnStructView {
+    name: Arc::from("SpecialPersonRecord"),
     pairs: vec![
       (EdnTag::new("name"), "Charlie".into()),
       (EdnTag::new("age"), Edn::Number(35.0)),
@@ -99,7 +100,7 @@ fn test_struct_serializes_to_map_not_record() {
   // Struct should serialize to Map, not Record
   match edn_value {
     Edn::Map(_) => {} // This is expected
-    Edn::Record(_) => panic!("Struct should not serialize to Record"),
+    Edn::Struct(_) => panic!("Struct should not serialize to Record"),
     _ => panic!("Struct should serialize to Map"),
   }
 }
@@ -107,8 +108,8 @@ fn test_struct_serializes_to_map_not_record() {
 #[test]
 fn test_roundtrip_record_to_struct_to_map() {
   // Start with a Record
-  let original_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("PersonRecord"),
+  let original_record = Edn::Struct(EdnStructView {
+    name: Arc::from("PersonRecord"),
     pairs: vec![
       (EdnTag::new("name"), "Eve".into()),
       (EdnTag::new("age"), Edn::Number(28.0)),
@@ -131,8 +132,8 @@ fn test_roundtrip_record_to_struct_to_map() {
 #[test]
 fn test_record_ignores_tag_name() {
   // Test that different record tag names don't affect deserialization
-  let record1 = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("PersonRecord"),
+  let record1 = Edn::Struct(EdnStructView {
+    name: Arc::from("PersonRecord"),
     pairs: vec![
       (EdnTag::new("name"), "Frank".into()),
       (EdnTag::new("age"), Edn::Number(32.0)),
@@ -140,8 +141,8 @@ fn test_record_ignores_tag_name() {
     ],
   });
 
-  let record2 = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("CompleteDifferentName"),
+  let record2 = Edn::Struct(EdnStructView {
+    name: Arc::from("CompleteDifferentName"),
     pairs: vec![
       (EdnTag::new("name"), "Frank".into()),
       (EdnTag::new("age"), Edn::Number(32.0)),
@@ -165,22 +166,22 @@ fn test_record_with_complex_nested_data() {
   }
 
   // Create a Record with nested data
-  let dept_record = Edn::Record(EdnRecordView {
-    tag: EdnTag::new("DepartmentRecord"),
+  let dept_record = Edn::Struct(EdnStructView {
+    name: Arc::from("DepartmentRecord"),
     pairs: vec![
       (EdnTag::new("name"), "Engineering".into()),
       (EdnTag::new("employees"), {
         vec![
-          Edn::Record(EdnRecordView {
-            tag: EdnTag::new("PersonRecord"),
+          Edn::Struct(EdnStructView {
+            name: Arc::from("PersonRecord"),
             pairs: vec![
               (EdnTag::new("name"), "Alice".into()),
               (EdnTag::new("age"), Edn::Number(30.0)),
               (EdnTag::new("email"), "alice@example.com".into()),
             ],
           }),
-          Edn::Record(EdnRecordView {
-            tag: EdnTag::new("PersonRecord"),
+          Edn::Struct(EdnStructView {
+            name: Arc::from("PersonRecord"),
             pairs: vec![
               (EdnTag::new("name"), "Bob".into()),
               (EdnTag::new("age"), Edn::Number(25.0)),
