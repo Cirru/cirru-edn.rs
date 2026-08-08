@@ -499,10 +499,7 @@ fn extract_cirru_edn_with_path(node: &Cirru, path: Vec<usize>) -> EdnResult<Edn>
                 if entries.is_empty() {
                   return Err(EdnError::structure("empty record is invalid", path.clone(), Some(node)));
                 }
-                Ok(Edn::Struct(EdnStructView {
-                  name: name,
-                  pairs: entries,
-                }))
+                Ok(Edn::Struct(EdnStructView { name, pairs: entries }))
               } else {
                 Err(EdnError::structure(
                   "insufficient items for edn record",
